@@ -40,14 +40,16 @@ export class MongoConnector {
   dataSource?: Record<string, unknown>;
 
   private connectionManager: MongoConnectionManager;
+  private readonly ownsConnectionManager: boolean;
   private _models: Record<string, ModelDefinition> = {};
 
   /**
    * @param settings - Connector configuration
    * @param connectionManager - Optional shared connection manager.
    *   When provided (e.g. by MongoComponent), the connector uses
-   *   the shared MongoClient. When omitted (standalone juggler use),
-   *   the connector creates its own manager.
+   *   the shared MongoClient and does NOT own disconnect.
+   *   When omitted (standalone juggler use), the connector creates
+   *   and owns its own manager.
    */
   constructor(
     settings: MongoConnectorConfig,
@@ -58,9 +60,13 @@ export class MongoConnector {
       strictObjectIDCoercion: false,
       ...settings,
     };
-    this.connectionManager =
-      connectionManager ??
-      new MongoConnectionManager(this.settings);
+    if (connectionManager) {
+      this.connectionManager = connectionManager;
+      this.ownsConnectionManager = false;
+    } else {
+      this.connectionManager = new MongoConnectionManager(this.settings);
+      this.ownsConnectionManager = true;
+    }
   }
 
   // ---- Connection lifecycle ----
@@ -75,12 +81,18 @@ export class MongoConnector {
   }
 
   /**
-   * Disconnect. Only disconnects if this connector owns its
-   * connection manager (standalone juggler use). When the manager
-   * is shared via MongoComponent, the lifecycle observer owns
-   * disconnect.
+   * Disconnect from MongoDB.
+   *
+   * Only disconnects if this connector owns its connection manager
+   * (standalone juggler DataSource use). When the manager is shared
+   * via MongoComponent, the lifecycle observer owns disconnect --
+   * calling this is a no-op.
    */
   async disconnect(): Promise<void> {
+    if (!this.ownsConnectionManager) {
+      debug('disconnect skipped (shared connection manager)');
+      return;
+    }
     await this.connectionManager.disconnect();
   }
 
@@ -438,6 +450,9 @@ export class MongoConnector {
   async beginTransaction(
     options?: TransactionOptions,
   ): Promise<ClientSession> {
+    if (!this.connectionManager.isConnected()) {
+      await this.connectionManager.connect();
+    }
     const client = this.connectionManager.getClient();
     const session = client.startSession();
     session.startTransaction(options);

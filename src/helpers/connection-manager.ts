@@ -6,7 +6,7 @@ import {detectTopology, TopologyInfo} from './topology';
 
 const debug = debugFactory('loopback:connector:mongodb:connection');
 
-type ConnectionState = 'disconnected' | 'connecting' | 'connected';
+type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'disconnecting';
 
 /**
  * Centralized connection manager for the MongoDB client.
@@ -16,8 +16,9 @@ type ConnectionState = 'disconnected' | 'connecting' | 'connected';
  * pool, one lifecycle, and one topology state.
  *
  * - `connect()` is idempotent and concurrency-safe.
- * - `disconnect()` is idempotent.
+ * - `disconnect()` is idempotent and coordinates with in-flight connects.
  * - Repeated start/stop cycles are safe (test restarts, hot reload).
+ * - A generation counter prevents stale connect from overriding disconnect.
  */
 export class MongoConnectionManager {
   private client?: MongoClient;
@@ -25,38 +26,65 @@ export class MongoConnectionManager {
   private state: ConnectionState = 'disconnected';
   private connectPromise?: Promise<void>;
   private topologyInfo?: TopologyInfo;
+  private generation = 0;
 
   constructor(private readonly config: MongoConnectorConfig) {}
 
   /**
    * Connect to MongoDB. Idempotent and concurrency-safe.
    * Concurrent calls share the same connection promise.
+   * If disconnect is in progress, waits for it then connects.
    */
   async connect(): Promise<void> {
-    if (this.state === 'connected') return;
+    if (this.isConnected()) return;
+    if (this.state === 'disconnecting') {
+      await this.waitForDisconnect();
+    }
+    if (this.isConnected()) return;
+
     if (this.connectPromise) {
       await this.connectPromise;
       return;
     }
 
+    const gen = this.generation;
     this.state = 'connecting';
-    this.connectPromise = this.doConnect().finally(() => {
+    this.connectPromise = this.doConnect(gen).finally(() => {
       this.connectPromise = undefined;
     });
 
     try {
       await this.connectPromise;
     } catch (err) {
-      this.state = 'disconnected';
+      if (this.generation === gen) {
+        this.state = 'disconnected';
+      }
       throw err;
     }
   }
 
   /**
    * Disconnect from MongoDB. Idempotent.
+   * Waits for any in-flight connect to settle before closing.
+   * Uses generation counter to prevent stale connect from
+   * overriding this disconnect.
    */
   async disconnect(): Promise<void> {
-    if (this.state === 'disconnected' && !this.client) return;
+    if (this.state === 'disconnected' && !this.client && !this.connectPromise) {
+      return;
+    }
+
+    this.generation++;
+    this.state = 'disconnecting';
+
+    // Wait for in-flight connect to settle
+    if (this.connectPromise) {
+      try {
+        await this.connectPromise;
+      } catch {
+        // connect failed, proceed with disconnect
+      }
+    }
 
     if (this.client) {
       try {
@@ -76,7 +104,7 @@ export class MongoConnectionManager {
    * Get the connected MongoClient. Throws if not connected.
    */
   getClient(): MongoClient {
-    if (!this.client) {
+    if (!this.client || this.state !== 'connected') {
       throw new Error('MongoClient is not connected');
     }
     return this.client;
@@ -86,7 +114,7 @@ export class MongoConnectionManager {
    * Get the default Db instance. Throws if not connected.
    */
   getDb(name?: string): Db {
-    if (!this.client) {
+    if (!this.client || this.state !== 'connected') {
       throw new Error('MongoClient is not connected');
     }
     if (name) return this.client.db(name);
@@ -97,7 +125,8 @@ export class MongoConnectionManager {
   }
 
   /**
-   * Get topology info. Returns undefined if not connected.
+   * Get topology info. Best-effort detection using driver internals.
+   * Returns unknown topology if not connected.
    */
   getTopology(): TopologyInfo {
     if (!this.client) {
@@ -121,28 +150,34 @@ export class MongoConnectionManager {
     await db.command({ping: 1});
   }
 
-  private async doConnect(): Promise<void> {
+  private async doConnect(gen: number): Promise<void> {
     const url = buildConnectionUrl(this.config);
     debug(
       'connecting to %s',
       url.replace(/\/\/[^@]*@/, '//<credentials>@'),
     );
 
-    this.client = new MongoClient(url, this.config.clientOptions);
+    const client = new MongoClient(url, this.config.clientOptions);
 
     try {
-      await this.client.connect();
+      await client.connect();
     } catch (err) {
-      // Clean up partially initialized client
-      await this.client.close().catch(() => {});
-      this.client = undefined;
+      await client.close().catch(() => {});
       throw err;
     }
 
+    // Check generation: if disconnect happened during connect, don't
+    // set connected state -- close the client we just opened
+    if (this.generation !== gen) {
+      await client.close().catch(() => {});
+      throw new Error('Connection cancelled by disconnect');
+    }
+
+    this.client = client;
     const dbName =
       this.config.database ?? this.extractDatabaseFromUrl(url);
-    this.db = this.client.db(dbName);
-    this.topologyInfo = detectTopology(this.client);
+    this.db = client.db(dbName);
+    this.topologyInfo = detectTopology(client);
     this.state = 'connected';
 
     debug(
@@ -150,6 +185,16 @@ export class MongoConnectionManager {
       dbName,
       this.topologyInfo.topologyType,
     );
+  }
+
+  private async waitForDisconnect(): Promise<void> {
+    // Spin-wait is not ideal, but disconnect is fast
+    // and this only happens in edge cases (shutdown during startup)
+    let attempts = 0;
+    while (this.state === 'disconnecting' && attempts < 50) {
+      await new Promise(r => setTimeout(r, 10));
+      attempts++;
+    }
   }
 
   private extractDatabaseFromUrl(url: string): string {

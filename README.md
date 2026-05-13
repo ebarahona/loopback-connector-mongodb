@@ -34,7 +34,15 @@ This package is a ground-up implementation on driver 6.x with TypeScript. It pro
 | **MongoService** | Aggregation, Change Streams, Time Series, GridFS, transactions, bulk ops, tailable cursors, indexes, admin |
 | **MongoComponent** | LB4 Component with singleton MongoClient, lifecycle management |
 
-Both layers share a single `MongoClient` singleton.
+## Integration Paths
+
+This package supports two integration modes:
+
+**Component path (recommended):** Use `MongoComponent` to get a shared `MongoConnectionManager` singleton. The lifecycle observer owns connect/disconnect. `MongoService` uses this shared manager. If you also need juggler repositories, pass the shared manager to the connector.
+
+**Standalone juggler path:** Use `initialize()` via a juggler `DataSource`. The connector creates and owns its own connection manager. `MongoService` is not available in this mode.
+
+For apps that need both repositories AND MongoService, use the component path and wire the shared manager into the connector.
 
 ## Quick Start
 
