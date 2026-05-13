@@ -27,8 +27,8 @@ describe('Integration: Connection and Component', () => {
   }, 30000);
 
   afterAll(async () => {
-    await app.stop();
-    await mongod.stop();
+    await app?.stop();
+    await mongod?.stop();
   });
 
   it('resolves MongoService from the container', async () => {

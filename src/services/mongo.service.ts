@@ -59,13 +59,13 @@ export interface MongoService {
   aggregate<T extends Document>(
     collection: string,
     pipeline: Document[],
-    options?: AggregateOptions,
+    options?: AggregateOptions & {db?: string},
   ): Promise<T[]>;
 
   aggregateCursor<T extends Document>(
     collection: string,
     pipeline: Document[],
-    options?: AggregateOptions,
+    options?: AggregateOptions & {db?: string},
   ): AggregationCursor<T>;
 
   // ---- Change Streams ----
@@ -107,7 +107,7 @@ export interface MongoService {
   bulkWrite<T extends Document>(
     collection: string,
     operations: AnyBulkWriteOperation<T>[],
-    options?: BulkWriteOptions,
+    options?: BulkWriteOptions & {db?: string},
   ): Promise<BulkWriteResult>;
 
   // ---- Transactions ----

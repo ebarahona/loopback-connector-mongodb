@@ -7,37 +7,48 @@ import {
   inject,
   lifeCycleObserver,
 } from '@loopback/core';
-import {MongoClient} from 'mongodb';
 import debugFactory from 'debug';
 import {MongoBindings} from './keys';
-import {MongoClientProvider} from './providers/mongo-client.provider';
+import {MongoConnectionManager} from './helpers/connection-manager';
 import {MongoServiceImpl} from './services/mongo.service.impl';
+import {MongoConnectorConfig} from './types';
 
 const debug = debugFactory('loopback:connector:mongodb:lifecycle');
 
 /**
- * Lifecycle observer that manages MongoClient connection and shutdown.
+ * Provider that creates a singleton MongoConnectionManager.
+ */
+class ConnectionManagerProvider {
+  constructor(
+    @inject(MongoBindings.CONFIG, {optional: true})
+    private config?: MongoConnectorConfig,
+  ) {}
+
+  value(): MongoConnectionManager {
+    return new MongoConnectionManager(this.config ?? {});
+  }
+}
+
+/**
+ * Lifecycle observer that connects and disconnects the shared
+ * MongoConnectionManager.
+ *
+ * Idempotent: repeated start/stop cycles are safe.
  */
 @lifeCycleObserver('mongodb')
 export class MongoLifecycleObserver implements LifeCycleObserver {
   constructor(
-    @inject(MongoBindings.CLIENT)
-    private client: MongoClient,
+    @inject(MongoBindings.CONNECTION_MANAGER)
+    private manager: MongoConnectionManager,
   ) {}
 
   async start(): Promise<void> {
-    try {
-      await this.client.connect();
-      debug('MongoClient connected');
-    } catch (err) {
-      debug('MongoClient connection failed, cleaning up');
-      await this.client.close().catch(() => {});
-      throw err;
-    }
+    await this.manager.connect();
+    debug('MongoClient connected');
   }
 
   async stop(): Promise<void> {
-    await this.client.close();
+    await this.manager.disconnect();
     debug('MongoClient disconnected');
   }
 }
@@ -46,9 +57,14 @@ export class MongoLifecycleObserver implements LifeCycleObserver {
  * LoopBack 4 component that provides MongoDB connectivity.
  *
  * Registers:
- * - MongoClient (singleton provider, shared across connector and service)
+ * - MongoConnectionManager (singleton, owns the MongoClient)
+ * - MongoClient (singleton, derived from the connection manager)
  * - MongoService (singleton, advanced native operations)
  * - MongoLifecycleObserver (connects on start, disconnects on stop)
+ *
+ * Both the juggler connector and MongoService use the same
+ * connection manager, guaranteeing one connection pool, one
+ * lifecycle, and one topology state.
  *
  * Usage:
  * ```typescript
@@ -62,8 +78,8 @@ export class MongoLifecycleObserver implements LifeCycleObserver {
  */
 export class MongoComponent implements Component {
   readonly bindings: Binding<unknown>[] = [
-    Binding.bind(MongoBindings.CLIENT)
-      .toProvider(MongoClientProvider)
+    Binding.bind(MongoBindings.CONNECTION_MANAGER)
+      .toProvider(ConnectionManagerProvider)
       .inScope(BindingScope.SINGLETON),
     Binding.bind(MongoBindings.SERVICE)
       .toClass(MongoServiceImpl)

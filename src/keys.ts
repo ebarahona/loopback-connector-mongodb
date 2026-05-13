@@ -1,15 +1,17 @@
 import {BindingKey} from '@loopback/core';
-import type {MongoClient} from 'mongodb';
 import type {MongoService} from './services/mongo.service';
 import type {MongoConnectorConfig} from './types';
+import type {MongoConnectionManager} from './helpers/connection-manager';
 
 export namespace MongoBindings {
   /**
-   * Binding key for the shared MongoClient singleton.
+   * Binding key for the shared MongoConnectionManager singleton.
+   * Owns the MongoClient and connection lifecycle.
    */
-  export const CLIENT = BindingKey.create<MongoClient>(
-    'mongo.client',
-  );
+  export const CONNECTION_MANAGER =
+    BindingKey.create<MongoConnectionManager>(
+      'mongo.connection-manager',
+    );
 
   /**
    * Binding key for the MongoService.

@@ -25,8 +25,8 @@ describe('Integration: Time Series Collections', () => {
   }, 30000);
 
   afterAll(async () => {
-    await app.stop();
-    await mongod.stop();
+    await app?.stop();
+    await mongod?.stop();
   });
 
   it('creates a time series collection', async () => {

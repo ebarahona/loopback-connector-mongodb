@@ -31,8 +31,8 @@ describe('Integration: Connector CRUD', () => {
   }, 30000);
 
   afterAll(async () => {
-    await connector.disconnect();
-    await mongod.stop();
+    await connector?.disconnect();
+    await mongod?.stop();
   });
 
   beforeEach(async () => {

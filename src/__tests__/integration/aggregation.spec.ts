@@ -33,8 +33,8 @@ describe('Integration: Aggregation', () => {
   }, 30000);
 
   afterAll(async () => {
-    await app.stop();
-    await mongod.stop();
+    await app?.stop();
+    await mongod?.stop();
   });
 
   it('runs a simple aggregation pipeline', async () => {

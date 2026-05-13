@@ -25,8 +25,8 @@ describe('Integration: Change Streams', () => {
   afterAll(async () => {
     // Give change streams time to fully close before stopping
     await new Promise(r => setTimeout(r, 500));
-    await app.stop();
-    await mongod.stop();
+    await app?.stop();
+    await mongod?.stop();
   }, 10000);
 
   it('opens a collection-level change stream', async () => {

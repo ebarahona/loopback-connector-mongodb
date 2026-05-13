@@ -17,87 +17,104 @@ import {
   getIdPropertyName,
   ModelDefinition,
 } from './property-mapping';
-import {detectTopology, TopologyInfo} from '../helpers/topology';
+import {MongoConnectionManager} from '../helpers/connection-manager';
 
 const debug = debugFactory('loopback:connector:mongodb');
 
-type Callback<T = unknown> = (err: Error | null, result?: T) => void;
+type Callback = (err: Error | null, result?: unknown) => void;
 
 /**
  * MongoDB connector for LoopBack 4.
  *
  * Implements the loopback-connector Connector interface using the
- * native MongoDB Node.js driver 6.x. Supports CRUD operations,
- * query translation, transactions, and direct command execution.
+ * native MongoDB Node.js driver 6.x.
  *
- * Advanced operations (aggregation, Change Streams, Time Series,
- * GridFS) are available through the companion MongoService.
+ * Uses a shared MongoConnectionManager for connection lifecycle.
+ * When used via MongoComponent, the same manager is shared with
+ * MongoService. When used standalone via juggler DataSource, the
+ * connector creates its own manager.
  */
 export class MongoConnector {
   name = 'mongodb';
-  client?: MongoClient;
-  db?: Db;
   settings: MongoConnectorConfig;
   dataSource?: Record<string, unknown>;
-  topologyInfo?: TopologyInfo;
 
+  private connectionManager: MongoConnectionManager;
   private _models: Record<string, ModelDefinition> = {};
-  private connectPromise?: Promise<Db>;
 
-  constructor(settings: MongoConnectorConfig) {
+  /**
+   * @param settings - Connector configuration
+   * @param connectionManager - Optional shared connection manager.
+   *   When provided (e.g. by MongoComponent), the connector uses
+   *   the shared MongoClient. When omitted (standalone juggler use),
+   *   the connector creates its own manager.
+   */
+  constructor(
+    settings: MongoConnectorConfig,
+    connectionManager?: MongoConnectionManager,
+  ) {
     this.settings = {
       allowExtendedOperators: true,
       strictObjectIDCoercion: false,
       ...settings,
     };
+    this.connectionManager =
+      connectionManager ??
+      new MongoConnectionManager(this.settings);
   }
 
   // ---- Connection lifecycle ----
 
+  /**
+   * Connect to MongoDB. Delegates to the connection manager.
+   * Idempotent and concurrency-safe.
+   */
   async connect(): Promise<Db> {
-    if (this.db) return this.db;
-    if (this.connectPromise) return this.connectPromise;
-
-    this.connectPromise = this.doConnect().finally(() => {
-      this.connectPromise = undefined;
-    });
-    return this.connectPromise;
+    await this.connectionManager.connect();
+    return this.connectionManager.getDb();
   }
 
-  private async doConnect(): Promise<Db> {
-    const url = this.buildConnectionUrl();
-    debug('connecting to %s', url.replace(/\/\/[^@]*@/, '//<credentials>@'));
-
-    this.client = new MongoClient(url, this.settings.clientOptions);
-    await this.client.connect();
-
-    const dbName =
-      this.settings.database ?? this.extractDatabaseFromUrl(url);
-    this.db = this.client.db(dbName);
-    this.topologyInfo = detectTopology(this.client);
-
-    debug(
-      'connected to database [%s] (topology: %s)',
-      dbName,
-      this.topologyInfo.topologyType,
-    );
-
-    return this.db;
-  }
-
+  /**
+   * Disconnect. Only disconnects if this connector owns its
+   * connection manager (standalone juggler use). When the manager
+   * is shared via MongoComponent, the lifecycle observer owns
+   * disconnect.
+   */
   async disconnect(): Promise<void> {
-    if (this.client) {
-      await this.client.close();
-      this.client = undefined;
-      this.db = undefined;
-      this.topologyInfo = undefined;
-      debug('disconnected');
-    }
+    await this.connectionManager.disconnect();
   }
 
   async ping(): Promise<void> {
-    const db = await this.ensureConnected();
-    await db.command({ping: 1});
+    await this.connectionManager.ping();
+  }
+
+  /**
+   * Get the shared connection manager.
+   */
+  getConnectionManager(): MongoConnectionManager {
+    return this.connectionManager;
+  }
+
+  /**
+   * Get the native MongoClient instance.
+   */
+  getClient(): MongoClient | undefined {
+    try {
+      return this.connectionManager.getClient();
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Get the native Db instance.
+   */
+  getDb(): Db | undefined {
+    try {
+      return this.connectionManager.getDb();
+    } catch {
+      return undefined;
+    }
   }
 
   // ---- Model definition ----
@@ -119,8 +136,7 @@ export class MongoConnector {
     data: Record<string, unknown>,
     options?: Record<string, unknown>,
   ): Promise<unknown> {
-    const db = await this.ensureConnected();
-    const collection = this.collectionForModel(modelName, db);
+    const collection = await this.getCollection(modelName);
     const modelDef = this._models[modelName];
     const idName = getIdPropertyName(modelDef);
 
@@ -143,8 +159,6 @@ export class MongoConnector {
 
     const result = await collection.insertOne(dbDoc, sessionOpts);
 
-    // Preserve the caller's explicit ID; only use insertedId
-    // when no explicit ID was provided (MongoDB generated one)
     if (idValue === null || idValue === undefined) {
       idValue = result.insertedId;
     }
@@ -158,8 +172,7 @@ export class MongoConnector {
     id: unknown,
     options?: Record<string, unknown>,
   ): Promise<Record<string, unknown> | null> {
-    const db = await this.ensureConnected();
-    const collection = this.collectionForModel(modelName, db);
+    const collection = await this.getCollection(modelName);
     const modelDef = this._models[modelName];
 
     const coercedId = coerceId(
@@ -183,8 +196,7 @@ export class MongoConnector {
     filter?: Record<string, unknown>,
     options?: Record<string, unknown>,
   ): Promise<Record<string, unknown>[]> {
-    const db = await this.ensureConnected();
-    const collection = this.collectionForModel(modelName, db);
+    const collection = await this.getCollection(modelName);
     const modelDef = this._models[modelName];
     const idName = getIdPropertyName(modelDef);
 
@@ -225,8 +237,7 @@ export class MongoConnector {
     data: Record<string, unknown>,
     options?: Record<string, unknown>,
   ): Promise<{count: number}> {
-    const db = await this.ensureConnected();
-    const collection = this.collectionForModel(modelName, db);
+    const collection = await this.getCollection(modelName);
     const modelDef = this._models[modelName];
     const idName = getIdPropertyName(modelDef);
 
@@ -254,8 +265,7 @@ export class MongoConnector {
     where: Record<string, unknown> | undefined,
     options?: Record<string, unknown>,
   ): Promise<{count: number}> {
-    const db = await this.ensureConnected();
-    const collection = this.collectionForModel(modelName, db);
+    const collection = await this.getCollection(modelName);
     const modelDef = this._models[modelName];
     const idName = getIdPropertyName(modelDef);
 
@@ -273,8 +283,7 @@ export class MongoConnector {
     where?: Record<string, unknown>,
     options?: Record<string, unknown>,
   ): Promise<number> {
-    const db = await this.ensureConnected();
-    const collection = this.collectionForModel(modelName, db);
+    const collection = await this.getCollection(modelName);
     const modelDef = this._models[modelName];
     const idName = getIdPropertyName(modelDef);
 
@@ -290,8 +299,7 @@ export class MongoConnector {
     data: Record<string, unknown>,
     options?: Record<string, unknown>,
   ): Promise<{count: number}> {
-    const db = await this.ensureConnected();
-    const collection = this.collectionForModel(modelName, db);
+    const collection = await this.getCollection(modelName);
     const modelDef = this._models[modelName];
     const idName = getIdPropertyName(modelDef);
 
@@ -321,8 +329,7 @@ export class MongoConnector {
     data: Record<string, unknown>,
     options?: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    const db = await this.ensureConnected();
-    const collection = this.collectionForModel(modelName, db);
+    const collection = await this.getCollection(modelName);
     const modelDef = this._models[modelName];
     const idName = getIdPropertyName(modelDef);
 
@@ -359,14 +366,12 @@ export class MongoConnector {
     data: Record<string, unknown>,
     options?: Record<string, unknown>,
   ): Promise<[Record<string, unknown>, boolean]> {
-    // Try create first, catch duplicate key
     try {
       const id = await this.create(modelName, data, options);
       const modelDef = this._models[modelName];
       const idName = getIdPropertyName(modelDef);
       return [{...data, [idName]: id}, true];
     } catch (err) {
-      // Duplicate key error code 11000
       if ((err as {code?: number}).code === 11000) {
         const existing = await this.all(modelName, filter, options);
         if (existing.length > 0) {
@@ -408,12 +413,11 @@ export class MongoConnector {
     if (!MongoConnector.SAFE_COMMANDS.has(command)) {
       throw new Error(
         `Command "${command}" is not in the allowlist. ` +
-        'Use getClient() for unrestricted access.',
+          'Use getClient() for unrestricted access.',
       );
     }
 
-    const db = await this.ensureConnected();
-    const collection = this.collectionForModel(modelName, db);
+    const collection = await this.getCollection(modelName);
 
     const method = collection[command as keyof Collection];
     if (typeof method !== 'function') {
@@ -434,7 +438,7 @@ export class MongoConnector {
   async beginTransaction(
     options?: TransactionOptions,
   ): Promise<ClientSession> {
-    const client = await this.ensureClient();
+    const client = this.connectionManager.getClient();
     const session = client.startSession();
     session.startTransaction(options);
     debug('transaction started');
@@ -453,29 +457,10 @@ export class MongoConnector {
     debug('transaction rolled back');
   }
 
-  // ---- Helpers ----
+  // ---- Internal helpers ----
 
-  /**
-   * Get the native MongoClient instance.
-   */
-  getClient(): MongoClient | undefined {
-    return this.client;
-  }
-
-  /**
-   * Get the native Db instance.
-   */
-  getDb(): Db | undefined {
-    return this.db;
-  }
-
-  /**
-   * Get a collection for a model.
-   */
-  collectionForModel(modelName: string, db?: Db): Collection {
-    const d = db ?? this.db;
-    if (!d) throw new Error('Not connected');
-
+  collectionForModel(modelName: string): Collection {
+    const db = this.connectionManager.getDb();
     const modelDef = this._models[modelName];
     const mongoSettings = modelDef?.settings?.mongodb as
       | {collection?: string; table?: string}
@@ -483,59 +468,14 @@ export class MongoConnector {
     const collectionName =
       mongoSettings?.collection ?? mongoSettings?.table ?? modelName;
 
-    return d.collection(collectionName);
+    return db.collection(collectionName);
   }
 
-  private async ensureConnected(): Promise<Db> {
-    if (!this.db) {
-      await this.connect();
+  private async getCollection(modelName: string): Promise<Collection> {
+    if (!this.connectionManager.isConnected()) {
+      await this.connectionManager.connect();
     }
-    if (!this.db) throw new Error('Failed to establish connection');
-    return this.db;
-  }
-
-  private async ensureClient(): Promise<MongoClient> {
-    if (!this.client) {
-      await this.connect();
-    }
-    if (!this.client) throw new Error('Failed to establish connection');
-    return this.client;
-  }
-
-  private buildConnectionUrl(): string {
-    if (this.settings.url) return this.settings.url;
-
-    const host = this.settings.host ?? 'localhost';
-    const port = this.settings.port ?? 27017;
-    const database = this.settings.database ?? 'test';
-
-    let auth = '';
-    if (this.settings.username && this.settings.password) {
-      const user = encodeURIComponent(this.settings.username);
-      const pass = encodeURIComponent(this.settings.password);
-      auth = `${user}:${pass}@`;
-    }
-
-    let params = '';
-    if (this.settings.authSource) {
-      params = `?authSource=${this.settings.authSource}`;
-    }
-    if (this.settings.replicaSet) {
-      const sep = params ? '&' : '?';
-      params += `${sep}replicaSet=${this.settings.replicaSet}`;
-    }
-
-    return `mongodb://${auth}${host}:${port}/${database}${params}`;
-  }
-
-  private extractDatabaseFromUrl(url: string): string {
-    try {
-      const parsed = new URL(url);
-      const path = parsed.pathname;
-      return path.startsWith('/') ? path.slice(1) : path || 'test';
-    } catch {
-      return 'test';
-    }
+    return this.collectionForModel(modelName);
   }
 
   private buildUpdate(
@@ -551,7 +491,6 @@ export class MongoConnector {
 
     const dbData = toDatabase(modelDef, setData);
 
-    // If allowExtendedOperators and data contains $ operators, use as-is
     if (this.settings.allowExtendedOperators) {
       const hasOperators = Object.keys(dbData).some(k =>
         k.startsWith('$'),
@@ -571,7 +510,6 @@ export class MongoConnector {
 
     const data = fromDatabase(modelDef, doc);
 
-    // Map _id back to idName
     if (data._id !== undefined && idName !== '_id') {
       data[idName] = data._id;
       delete data._id;
@@ -590,8 +528,7 @@ export class MongoConnector {
 
 /**
  * Initialize function for loopback-datasource-juggler.
- * This is the entry point that the juggler calls to create
- * a connector instance.
+ * Creates a standalone connector with its own connection manager.
  */
 export function initialize(
   dataSource: Record<string, unknown>,

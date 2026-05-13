@@ -24,8 +24,8 @@ describe('Integration: Advanced Features', () => {
   }, 30000);
 
   afterAll(async () => {
-    await app.stop();
-    await mongod.stop();
+    await app?.stop();
+    await mongod?.stop();
   });
 
   describe('bulk operations', () => {

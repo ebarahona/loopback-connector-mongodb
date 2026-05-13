@@ -29,35 +29,30 @@ import {
 } from 'mongodb';
 import debugFactory from 'debug';
 import {MongoBindings} from '../keys';
-import {MongoConnectorConfig} from '../types';
-import {detectTopology} from '../helpers/topology';
+import {MongoConnectionManager} from '../helpers/connection-manager';
 import type {MongoService} from './mongo.service';
 
 const debug = debugFactory('loopback:connector:mongodb:service');
 
 @injectable({scope: BindingScope.SINGLETON})
 export class MongoServiceImpl implements MongoService {
-  private client: MongoClient;
-  private defaultDb: string;
+  private manager: MongoConnectionManager;
 
   constructor(
-    @inject(MongoBindings.CLIENT)
-    client: MongoClient,
-    @inject(MongoBindings.CONFIG, {optional: true})
-    config?: MongoConnectorConfig,
+    @inject(MongoBindings.CONNECTION_MANAGER)
+    manager: MongoConnectionManager,
   ) {
-    this.client = client;
-    this.defaultDb = config?.database ?? 'test';
+    this.manager = manager;
   }
 
   // ---- Core access ----
 
   getClient(): MongoClient {
-    return this.client;
+    return this.manager.getClient();
   }
 
   getDb(name?: string): Db {
-    return this.client.db(name ?? this.defaultDb);
+    return this.manager.getDb(name);
   }
 
   getCollection<T extends Document>(
@@ -72,23 +67,25 @@ export class MongoServiceImpl implements MongoService {
   async aggregate<T extends Document>(
     collection: string,
     pipeline: Document[],
-    options?: AggregateOptions,
+    options?: AggregateOptions & {db?: string},
   ): Promise<T[]> {
+    const {db, ...driverOptions} = options ?? {};
     debug('aggregate [%s] stages=%d', collection, pipeline.length);
-    return this.getCollection<T>(collection)
-      .aggregate<T>(pipeline, options)
+    return this.getDb(db)
+      .collection<T>(collection)
+      .aggregate<T>(pipeline, driverOptions)
       .toArray();
   }
 
   aggregateCursor<T extends Document>(
     collection: string,
     pipeline: Document[],
-    options?: AggregateOptions,
+    options?: AggregateOptions & {db?: string},
   ): AggregationCursor<T> {
-    return this.getCollection<T>(collection).aggregate<T>(
-      pipeline,
-      options,
-    );
+    const {db, ...driverOptions} = options ?? {};
+    return this.getDb(db)
+      .collection<T>(collection)
+      .aggregate<T>(pipeline, driverOptions);
   }
 
   // ---- Change Streams ----
@@ -111,7 +108,7 @@ export class MongoServiceImpl implements MongoService {
     options?: ChangeStreamOptions,
   ): ChangeStream {
     this.assertReplicaSet('watchDatabase');
-    debug('watchDatabase [%s]', this.defaultDb);
+    debug('watchDatabase');
     return this.getDb().watch(pipeline, options);
   }
 
@@ -121,7 +118,7 @@ export class MongoServiceImpl implements MongoService {
   ): ChangeStream {
     this.assertReplicaSet('watchClient');
     debug('watchClient');
-    return this.client.watch(pipeline, options);
+    return this.manager.getClient().watch(pipeline, options);
   }
 
   // ---- Time Series ----
@@ -170,13 +167,13 @@ export class MongoServiceImpl implements MongoService {
   async bulkWrite<T extends Document>(
     collection: string,
     operations: AnyBulkWriteOperation<T>[],
-    options?: BulkWriteOptions,
+    options?: BulkWriteOptions & {db?: string},
   ): Promise<BulkWriteResult> {
+    const {db, ...driverOptions} = options ?? {};
     debug('bulkWrite [%s] ops=%d', collection, operations.length);
-    return this.getCollection<T>(collection).bulkWrite(
-      operations,
-      options,
-    );
+    return this.getDb(db)
+      .collection<T>(collection)
+      .bulkWrite(operations, driverOptions);
   }
 
   // ---- Transactions ----
@@ -184,7 +181,7 @@ export class MongoServiceImpl implements MongoService {
   async withSession<T>(
     fn: (session: ClientSession) => Promise<T>,
   ): Promise<T> {
-    return this.client.withSession(fn);
+    return this.manager.getClient().withSession(fn);
   }
 
   async withTransaction<T>(
@@ -192,8 +189,8 @@ export class MongoServiceImpl implements MongoService {
     options?: TransactionOptions,
   ): Promise<T> {
     let result!: T;
-    await this.client.withSession(async session => {
-      await session.withTransaction(async (s) => {
+    await this.manager.getClient().withSession(async session => {
+      await session.withTransaction(async s => {
         result = await fn(s);
       }, options);
     });
@@ -279,15 +276,15 @@ export class MongoServiceImpl implements MongoService {
   // ---- Topology ----
 
   isReplicaSet(): boolean {
-    return detectTopology(this.client).isReplicaSet;
+    return this.manager.getTopology().isReplicaSet;
   }
 
   getTopologyType(): string {
-    return detectTopology(this.client).topologyType;
+    return this.manager.getTopology().topologyType;
   }
 
   private assertReplicaSet(operation: string): void {
-    const topo = detectTopology(this.client);
+    const topo = this.manager.getTopology();
     if (!topo.isReplicaSet) {
       throw new Error(
         `${operation} requires a replica set or sharded cluster. ` +

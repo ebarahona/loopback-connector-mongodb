@@ -7,31 +7,14 @@ export {MongoBindings} from './keys';
 // Types
 export {MongoConnectorConfig} from './types';
 
-// Connector
-export {
-  MongoConnector,
-  initialize,
-  buildWhere,
-  buildSort,
-  buildFields,
-  toObjectId,
-  isObjectIdString,
-  toDecimal128,
-  binaryToBuffer,
-  coerceId,
-  toDatabase,
-  fromDatabase,
-  getDatabaseColumnName,
-  getIdPropertyName,
-} from './connector';
+// Connector (public: class + juggler initializer)
+export {MongoConnector, initialize} from './connector';
 export type {ModelDefinition, PropertyDefinition} from './connector';
 
-// Services
-export {MongoService, MongoServiceImpl} from './services';
+// Services (public: interface + implementation)
+export {MongoService} from './services';
+export {MongoServiceImpl} from './services';
 
-// Providers
-export {MongoClientProvider} from './providers';
-
-// Helpers
-export {detectTopology} from './helpers';
+// Connection management
+export {MongoConnectionManager} from './helpers';
 export type {TopologyInfo} from './helpers';
