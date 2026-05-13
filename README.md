@@ -6,6 +6,26 @@ Full-featured MongoDB connector for LoopBack 4, built on the native MongoDB Node
 npm install @ebarahona/loopback-connector-mongodb
 ```
 
+## Why
+
+The official `loopback-connector-mongodb` provides CRUD via the juggler interface but does not support aggregation pipelines, Change Streams, Time Series Collections, $jsonSchema validation, GridFS, tailable cursors, or bulk operations. It uses the MongoDB driver 5.x with callback-based internals.
+
+This package is a ground-up implementation on driver 6.x with TypeScript. It provides the same juggler-compatible CRUD plus an injectable `MongoService` for every native driver feature the official connector cannot expose.
+
+| | Official connector | This package |
+|---|---|---|
+| CRUD (repositories) | Yes | Yes |
+| MongoDB driver | 5.x | 6.x |
+| TypeScript | No | Yes |
+| Aggregation pipelines | No | Yes |
+| Change Streams | No | Yes |
+| Time Series Collections | No | Yes |
+| $jsonSchema validation | No | Yes |
+| GridFS | No | Yes |
+| Transactions | Partial | Yes |
+| Bulk operations | No | Yes |
+| Tailable cursors | No | Yes |
+
 ## What This Provides
 
 | Layer | Purpose |
