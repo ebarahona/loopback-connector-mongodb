@@ -30,7 +30,7 @@ import {
 import debugFactory from 'debug';
 import {MongoBindings} from '../keys';
 import {MongoConnectorConfig} from '../types';
-import {detectTopology, TopologyInfo} from '../helpers/topology';
+import {detectTopology} from '../helpers/topology';
 import type {MongoService} from './mongo.service';
 
 const debug = debugFactory('loopback:connector:mongodb:service');
@@ -39,7 +39,6 @@ const debug = debugFactory('loopback:connector:mongodb:service');
 export class MongoServiceImpl implements MongoService {
   private client: MongoClient;
   private defaultDb: string;
-  private topology?: TopologyInfo;
 
   constructor(
     @inject(MongoBindings.CLIENT)
@@ -161,8 +160,8 @@ export class MongoServiceImpl implements MongoService {
     options?: GridFSBucketOptions,
   ): GridFSBucket {
     return new GridFSBucket(this.getDb(), {
-      bucketName,
       ...options,
+      ...(bucketName ? {bucketName} : {}),
     });
   }
 
@@ -192,9 +191,13 @@ export class MongoServiceImpl implements MongoService {
     fn: (session: ClientSession) => Promise<T>,
     options?: TransactionOptions,
   ): Promise<T> {
-    return this.client.withSession(async session => {
-      return session.withTransaction(fn, options);
-    }) as Promise<T>;
+    let result!: T;
+    await this.client.withSession(async session => {
+      await session.withTransaction(async (s) => {
+        result = await fn(s);
+      }, options);
+    });
+    return result;
   }
 
   // ---- Tailable cursors ----
@@ -205,14 +208,12 @@ export class MongoServiceImpl implements MongoService {
     options?: FindOptions,
   ): FindCursor<T> {
     debug('tailableCursor [%s]', collection);
-    return this.getCollection<T>(collection).find(
-      (filter ?? {}) as Filter<T>,
-      {
-        ...options,
-        tailable: true,
-        awaitData: true,
-      },
-    ) as unknown as FindCursor<T>;
+    const coll = this.getCollection<T>(collection);
+    return coll.find(filter ?? ({} as Filter<T>), {
+      ...options,
+      tailable: true,
+      awaitData: true,
+    }) as FindCursor<T>;
   }
 
   // ---- Index management ----
@@ -278,25 +279,19 @@ export class MongoServiceImpl implements MongoService {
   // ---- Topology ----
 
   isReplicaSet(): boolean {
-    return this.getTopology().isReplicaSet;
+    return detectTopology(this.client).isReplicaSet;
   }
 
   getTopologyType(): string {
-    return this.getTopology().topologyType;
-  }
-
-  private getTopology(): TopologyInfo {
-    if (!this.topology) {
-      this.topology = detectTopology(this.client);
-    }
-    return this.topology;
+    return detectTopology(this.client).topologyType;
   }
 
   private assertReplicaSet(operation: string): void {
-    if (!this.isReplicaSet()) {
+    const topo = detectTopology(this.client);
+    if (!topo.isReplicaSet) {
       throw new Error(
         `${operation} requires a replica set or sharded cluster. ` +
-          `Current topology: ${this.getTopologyType()}`,
+          `Current topology: ${topo.topologyType}`,
       );
     }
   }

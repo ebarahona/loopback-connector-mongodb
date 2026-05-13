@@ -24,7 +24,7 @@ export function isObjectIdString(value: unknown): value is string {
 /**
  * Coerce a value to Decimal128 if it's a number or numeric string.
  */
-export function toDecimal128(value: unknown): Decimal128 | unknown {
+export function toDecimal128(value: unknown): unknown {
   if (value instanceof Decimal128) return value;
   if (typeof value === 'number') return Decimal128.fromString(String(value));
   if (typeof value === 'string') {
@@ -40,7 +40,7 @@ export function toDecimal128(value: unknown): Decimal128 | unknown {
 /**
  * Convert a Binary value to a Buffer.
  */
-export function binaryToBuffer(value: unknown): Buffer | unknown {
+export function binaryToBuffer(value: unknown): unknown {
   if (value instanceof Binary) {
     return value.buffer;
   }

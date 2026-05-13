@@ -1,5 +1,6 @@
 import type {Document} from 'mongodb';
 import {ObjectId, Binary, Decimal128} from 'mongodb';
+import {toObjectId, toDecimal128} from './coercion';
 
 /**
  * Model property definition as stored by the juggler connector.
@@ -46,7 +47,9 @@ export function toDatabase(
     const dbName = prop?.mongodb?.fieldName ?? key;
 
     if (prop?.mongodb?.dataType === 'Decimal128' && value != null) {
-      result[dbName] = Decimal128.fromString(String(value));
+      result[dbName] = toDecimal128(value);
+    } else if (prop?.mongodb?.dataType === 'ObjectId' && value != null) {
+      result[dbName] = toObjectId(value);
     } else {
       result[dbName] = value;
     }

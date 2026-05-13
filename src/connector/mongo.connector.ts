@@ -42,6 +42,7 @@ export class MongoConnector {
   topologyInfo?: TopologyInfo;
 
   private _models: Record<string, ModelDefinition> = {};
+  private connectPromise?: Promise<Db>;
 
   constructor(settings: MongoConnectorConfig) {
     this.settings = {
@@ -55,7 +56,15 @@ export class MongoConnector {
 
   async connect(): Promise<Db> {
     if (this.db) return this.db;
+    if (this.connectPromise) return this.connectPromise;
 
+    this.connectPromise = this.doConnect().finally(() => {
+      this.connectPromise = undefined;
+    });
+    return this.connectPromise;
+  }
+
+  private async doConnect(): Promise<Db> {
     const url = this.buildConnectionUrl();
     debug('connecting to %s', url.replace(/\/\/[^@]*@/, '//<credentials>@'));
 
@@ -81,13 +90,14 @@ export class MongoConnector {
       await this.client.close();
       this.client = undefined;
       this.db = undefined;
+      this.topologyInfo = undefined;
       debug('disconnected');
     }
   }
 
   async ping(): Promise<void> {
-    await this.ensureConnected();
-    await this.db!.command({ping: 1});
+    const db = await this.ensureConnected();
+    await db.command({ping: 1});
   }
 
   // ---- Model definition ----
@@ -132,7 +142,12 @@ export class MongoConnector {
     const sessionOpts = this.extractSessionOptions(options);
 
     const result = await collection.insertOne(dbDoc, sessionOpts);
-    idValue = result.insertedId;
+
+    // Preserve the caller's explicit ID; only use insertedId
+    // when no explicit ID was provided (MongoDB generated one)
+    if (idValue === null || idValue === undefined) {
+      idValue = result.insertedId;
+    }
 
     debug('create [%s] id=%s', modelName, idValue);
     return idValue;
@@ -344,15 +359,22 @@ export class MongoConnector {
     data: Record<string, unknown>,
     options?: Record<string, unknown>,
   ): Promise<[Record<string, unknown>, boolean]> {
-    const existing = await this.all(modelName, filter, options);
-    if (existing.length > 0) {
-      return [existing[0], false];
+    // Try create first, catch duplicate key
+    try {
+      const id = await this.create(modelName, data, options);
+      const modelDef = this._models[modelName];
+      const idName = getIdPropertyName(modelDef);
+      return [{...data, [idName]: id}, true];
+    } catch (err) {
+      // Duplicate key error code 11000
+      if ((err as {code?: number}).code === 11000) {
+        const existing = await this.all(modelName, filter, options);
+        if (existing.length > 0) {
+          return [existing[0], false];
+        }
+      }
+      throw err;
     }
-
-    const id = await this.create(modelName, data, options);
-    const modelDef = this._models[modelName];
-    const idName = getIdPropertyName(modelDef);
-    return [{...data, [idName]: id}, true];
   }
 
   async exists(
@@ -366,11 +388,30 @@ export class MongoConnector {
 
   // ---- Direct execution ----
 
+  private static readonly SAFE_COMMANDS = new Set([
+    'find', 'findOne', 'insertOne', 'insertMany',
+    'updateOne', 'updateMany', 'replaceOne',
+    'deleteOne', 'deleteMany',
+    'aggregate', 'countDocuments', 'estimatedDocumentCount',
+    'distinct', 'findOneAndUpdate', 'findOneAndReplace',
+    'findOneAndDelete', 'bulkWrite',
+    'createIndex', 'createIndexes', 'dropIndex', 'dropIndexes',
+    'listIndexes', 'indexExists', 'indexes',
+    'watch', 'isCapped', 'stats',
+  ]);
+
   async execute(
     modelName: string,
     command: string,
     ...args: unknown[]
   ): Promise<unknown> {
+    if (!MongoConnector.SAFE_COMMANDS.has(command)) {
+      throw new Error(
+        `Command "${command}" is not in the allowlist. ` +
+        'Use getClient() for unrestricted access.',
+      );
+    }
+
     const db = await this.ensureConnected();
     const collection = this.collectionForModel(modelName, db);
 
@@ -436,10 +477,11 @@ export class MongoConnector {
     if (!d) throw new Error('Not connected');
 
     const modelDef = this._models[modelName];
+    const mongoSettings = modelDef?.settings?.mongodb as
+      | {collection?: string; table?: string}
+      | undefined;
     const collectionName =
-      (modelDef?.settings as Record<string, unknown> | undefined)
-        ?.mongodb?.toString() ??
-      modelName;
+      mongoSettings?.collection ?? mongoSettings?.table ?? modelName;
 
     return d.collection(collectionName);
   }
@@ -448,14 +490,16 @@ export class MongoConnector {
     if (!this.db) {
       await this.connect();
     }
-    return this.db!;
+    if (!this.db) throw new Error('Failed to establish connection');
+    return this.db;
   }
 
   private async ensureClient(): Promise<MongoClient> {
     if (!this.client) {
       await this.connect();
     }
-    return this.client!;
+    if (!this.client) throw new Error('Failed to establish connection');
+    return this.client;
   }
 
   private buildConnectionUrl(): string {
@@ -562,7 +606,7 @@ export function initialize(
 
   if (callback) {
     if (settings.lazyConnect) {
-      process.nextTick(callback);
+      process.nextTick(() => callback(null));
     } else {
       connector
         .connect()

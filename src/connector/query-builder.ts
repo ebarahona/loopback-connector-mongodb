@@ -27,6 +27,9 @@ export function buildWhere(
   for (const [key, value] of Object.entries(where)) {
     // Logical operators
     if (key === 'and' || key === 'or' || key === 'nor') {
+      if (!Array.isArray(value)) {
+        throw new Error(`"${key}" operator requires an array`);
+      }
       const conditions = value as Record<string, unknown>[];
       query[`$${key}`] = conditions.map(c => buildWhere(c, idName));
       continue;
@@ -56,25 +59,28 @@ export function buildWhere(
       hasOperator = true;
       switch (op) {
         case 'gt':
-          mongoExpr.$gt = operand;
+          mongoExpr.$gt = fieldName === '_id' ? toObjectId(operand) : operand;
           break;
         case 'gte':
-          mongoExpr.$gte = operand;
+          mongoExpr.$gte = fieldName === '_id' ? toObjectId(operand) : operand;
           break;
         case 'lt':
-          mongoExpr.$lt = operand;
+          mongoExpr.$lt = fieldName === '_id' ? toObjectId(operand) : operand;
           break;
         case 'lte':
-          mongoExpr.$lte = operand;
+          mongoExpr.$lte = fieldName === '_id' ? toObjectId(operand) : operand;
           break;
         case 'neq':
-          mongoExpr.$ne = operand;
+          mongoExpr.$ne = fieldName === '_id' ? toObjectId(operand) : operand;
           break;
         case 'between':
-          if (Array.isArray(operand) && operand.length === 2) {
-            mongoExpr.$gte = operand[0];
-            mongoExpr.$lte = operand[1];
+          if (!Array.isArray(operand) || operand.length !== 2) {
+            throw new Error(
+              `"between" operator requires a 2-element array, got: ${JSON.stringify(operand)}`,
+            );
           }
+          mongoExpr.$gte = operand[0];
+          mongoExpr.$lte = operand[1];
           break;
         case 'inq':
           mongoExpr.$in = Array.isArray(operand)

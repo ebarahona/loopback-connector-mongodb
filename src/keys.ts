@@ -1,6 +1,7 @@
 import {BindingKey} from '@loopback/core';
 import type {MongoClient} from 'mongodb';
 import type {MongoService} from './services/mongo.service';
+import type {MongoConnectorConfig} from './types';
 
 export namespace MongoBindings {
   /**
@@ -20,7 +21,7 @@ export namespace MongoBindings {
   /**
    * Binding key for the connector configuration.
    */
-  export const CONFIG = BindingKey.create<Record<string, unknown>>(
+  export const CONFIG = BindingKey.create<MongoConnectorConfig>(
     'mongo.config',
   );
 }

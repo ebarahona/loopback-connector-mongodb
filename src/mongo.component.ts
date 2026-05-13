@@ -26,8 +26,14 @@ export class MongoLifecycleObserver implements LifeCycleObserver {
   ) {}
 
   async start(): Promise<void> {
-    await this.client.connect();
-    debug('MongoClient connected');
+    try {
+      await this.client.connect();
+      debug('MongoClient connected');
+    } catch (err) {
+      debug('MongoClient connection failed, cleaning up');
+      await this.client.close().catch(() => {});
+      throw err;
+    }
   }
 
   async stop(): Promise<void> {

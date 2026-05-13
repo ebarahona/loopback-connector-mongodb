@@ -54,7 +54,8 @@ export interface MongoConnectorConfig {
 
   /**
    * Enable lazy connection. If true, connection is deferred
-   * until the first operation.
+   * until the first operation. Only applies when using the
+   * connector via juggler DataSource, not via MongoComponent.
    * @default false
    */
   lazyConnect?: boolean;
