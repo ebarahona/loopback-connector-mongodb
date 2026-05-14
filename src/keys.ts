@@ -4,6 +4,7 @@ import type {MongoService} from './services/mongo.service';
 import type {MongoConnectorConfig} from './types';
 import type {MongoConnectionManager} from './helpers/connection-manager';
 import type {MongoDataSourceFactory} from './datasource/mongo.datasource.factory';
+import type {MongoChangeStreamServer} from './servers/mongo-change-stream-server';
 
 /**
  * Binding keys for the MongoDB component.
@@ -45,4 +46,14 @@ export namespace MongoBindings {
   export const DATASOURCE_FACTORY = BindingKey.create<MongoDataSourceFactory>(
     'datasources.mongo.factory',
   );
+
+  /**
+   * Binding key for the MongoDB change stream transport server. Bound
+   * by `MongoChangeStreamComponent` and tagged for transport-core's
+   * `TransportBooter` to pick up.
+   *
+   * @experimental
+   */
+  export const CHANGE_STREAM_SERVER =
+    BindingKey.create<MongoChangeStreamServer>('mongo.servers.change-stream');
 }

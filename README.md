@@ -6,6 +6,8 @@ Full-featured MongoDB connector for LoopBack 4, built on the native MongoDB Node
 npm install @ebarahona/loopback-connector-mongodb
 ```
 
+> Part of the [`@ebarahona/loopback-*` plugin portfolio](https://github.com/ebarahona/loopback-plugins). See the [portfolio roadmap](https://github.com/ebarahona/loopback-plugins/blob/main/ROADMAP.md) for sibling plugins (`loopback-transport-core`, planned `loopback-graphql`) and the shared infrastructure they use.
+
 ## Why
 
 This connector is built for a specific architectural goal: combined with [`@ebarahona/loopback-transport-core`](https://github.com/ebarahona/loopback-transport-core), it gives LoopBack 4 apps the same `ExecutionContext`-driven, decorator-based message-handler architecture that NestJS provides, on the LB4 foundation, with LB4's DI, lifecycle, and component model.
@@ -220,6 +222,64 @@ class AnalyticsService {
 - `watchClient(pipeline?, options?)` -- client-level (all databases)
 
 Requires replica set or sharded cluster. Throws on standalone with a clear error.
+
+### Change streams as a transport (experimental)
+
+For declarative change-stream handlers in apps that also use
+[`@ebarahona/loopback-transport-core`](https://github.com/ebarahona/loopback-transport-core),
+this package ships an optional `MongoChangeStreamComponent` that
+registers MongoDB change streams as a transport-core transport. Once
+bound, methods decorated with `@changeStream(...)` receive matching
+change events through the same handler-dispatch pipeline as
+`@messageHandler` and `@eventHandler`.
+
+```typescript
+import {Application} from '@loopback/core';
+import {
+  MongoBindings,
+  MongoComponent,
+  MongoChangeStreamComponent,
+  changeStream,
+} from '@ebarahona/loopback-connector-mongodb';
+import {TransportComponent, payload} from '@ebarahona/loopback-transport-core';
+import type {ChangeStreamDocument} from 'mongodb';
+
+const app = new Application();
+app.bind(MongoBindings.CONFIG).to({url: 'mongodb://localhost:27017/app'});
+app.component(MongoComponent);
+app.component(MongoChangeStreamComponent);
+app.component(TransportComponent);
+
+class AuditController {
+  @changeStream({collection: 'users', op: 'insert'})
+  async onUserCreated(@payload() change: ChangeStreamDocument) {
+    console.log('user inserted:', change.fullDocument);
+  }
+
+  @changeStream({collection: 'orders'}) // any operation
+  async onOrderChanged(@payload() change: ChangeStreamDocument) {
+    console.log('order:', change.operationType, change.documentKey);
+  }
+}
+
+app.controller(AuditController);
+await app.start();
+```
+
+Each decorated method corresponds to one underlying `ChangeStream`
+opened in the server's `listen()` and closed during `stop()`. The
+`op` field maps to an `operationType` `$match` stage; omit it or set
+to `'*'` to receive every operation type. Additional ChangeStream
+options (`fullDocument`, `fullDocumentBeforeChange`, `batchSize`,
+`maxAwaitTimeMS`) are forwarded directly to the driver.
+
+This integration is `@experimental`. The decorator shape and the
+underlying registry pattern may change before promotion to `@public`.
+Pin to a minor range during the experimental period.
+
+Requires `@ebarahona/loopback-transport-core@>=1.2.0`. Without it, the
+component will fail to bind; the rest of the connector continues to
+work in standalone mode.
 
 ### Time Series
 

@@ -34,3 +34,10 @@ export type {TopologyInfo} from './helpers';
 export {MongoConnectorError} from './connector';
 export {MongoTopologyError} from './services';
 export {MongoConnectionError} from './helpers';
+
+// Change stream transport (experimental)
+export {changeStream, CHANGE_STREAM_METADATA} from './decorators';
+export type {MongoChangeStreamHandlerOptions} from './decorators';
+export {ChangeStreamDiscoverer} from './discovery';
+export {MongoChangeStreamServer} from './servers';
+export {MongoChangeStreamComponent} from './mongo-change-stream.component';

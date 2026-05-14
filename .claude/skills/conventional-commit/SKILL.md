@@ -1,6 +1,6 @@
 ---
 name: conventional-commit
-description: Author a Conventional Commits-formatted message with DCO sign-off. Use after staging changes — reads the staged diff and proposes a commit message ready to paste into `git commit -m`, without running git commit itself.
+description: Author a Conventional Commits-formatted message with DCO sign-off for any LoopBack 4 plugin. Plugin-agnostic. Reads the staged diff, infers commit type, derives scope from the repo's own `src/` folder layout (not a hardcoded list), generates a subject line and body, and appends Signed-off-by. Never runs `git commit` itself.
 ---
 
 # conventional-commit
@@ -14,38 +14,45 @@ git diff --cached --stat
 git diff --cached
 git config user.name
 git config user.email
+ls src 2>/dev/null   # to derive available scopes
 ```
 
 If `git diff --cached` is empty, abort and tell the user to stage changes first.
 
 ## Decide
 
+### Type
+
 Pick a single Conventional Commits **type** from the staged diff:
 
-- `feat` — new exports, new public methods, new BindingKeys, new lifecycle observers
+- `feat` — new exports, new public methods, new BindingKeys, new lifecycle observers, new public-API surface
 - `fix` — changes to existing logic that resolve a bug
 - `docs` — changes only under `*.md` files or JSDoc-only edits
 - `refactor` — code restructure with no behavior change
 - `perf` — measurable performance improvement
-- `test` — changes only under `__tests__/`
+- `test` — changes only under `__tests__/` or `*.spec.ts`
 - `ci` — changes only under `.github/workflows/`
 - `build` — changes to `package.json` (scripts), `tsconfig.json`, build configs
 - `deps` — dependency version bumps only (`package.json` deps blocks, lockfile)
 - `chore` — anything else
 
-Pick a single **scope** from the dominant changed path:
+### Scope (derived from `src/` layout — not a hardcoded list)
 
-- `connector` for `src/connector/`
-- `service` for `src/services/`
-- `datasource` for `src/datasource/`
-- `connection-manager` for `src/helpers/connection-manager.ts`
-- `query-builder` for `src/connector/query-builder.ts`
-- `component` for `src/mongo.component.ts`
-- `keys` for `src/keys.ts`
-- `validator` for `src/helpers/config-validator.ts`
-- A short kebab-case name for any other consistent path
+Examine the dominant changed path. Use the first folder segment under `src/` as the scope. Examples (derived dynamically, not memorized):
 
-Scope is optional. Omit when the change spans many areas or is repo-wide.
+- Files under `src/server/**` → scope `server`
+- Files under `src/services/**` → scope `services`
+- Files under `src/connector/**` → scope `connector`
+- Files under `src/decorators/**` → scope `decorators`
+- Files under `src/__tests__/**` → no scope (use bare type `test:`)
+- `src/index.ts` alone → scope `index`
+- `src/keys.ts` alone → scope `keys`
+- `src/<name>.component.ts` → scope `component`
+- `src/<name>.observer.ts` → scope `observer`
+
+Scope is optional. Omit when the change spans many top-level `src/` subfolders or is repo-wide (lockfile bumps, CI workflows). Use a short kebab-case name when a folder name doesn't fit cleanly.
+
+For multi-package monorepos, use the package name (e.g. `connector`, `transport-core`) as the scope; the within-package folder becomes context for the body.
 
 ## Write
 
@@ -84,3 +91,4 @@ Then state the inferred type and scope on a single line so the contributor can s
 - Do not run `git commit`. The user owns committing.
 - Do not add `BREAKING CHANGE:` unless the diff actually breaks the public API in `src/index.ts` — that's a `feat!` / `fix!` decision the human should confirm.
 - Do not invent issues, PR numbers, or co-authors.
+- Do not hardcode scope names — derive them from the current repo's `src/` layout every invocation.

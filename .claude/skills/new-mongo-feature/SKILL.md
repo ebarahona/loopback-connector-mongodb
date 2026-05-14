@@ -24,6 +24,7 @@ If any answer is missing, ask. Don't guess.
 - `src/keys.ts` if a new binding is needed
 - `src/mongo.component.ts` if a new binding is needed
 - One existing integration test under `src/__tests__/integration/` for shape reference
+- LoopBack's [`loopback-core` skill](https://github.com/loopbackio/loopback-next/tree/master/skills/loopback-core), specifically its `references/context-and-bindings.md` and `references/dependency-injection.md`, before adding a new `BindingKey` or Provider. Defer to that for the canonical framework patterns; use this skill only for the plugin-author conventions (stability tags, file naming, JSDoc shape).
 
 ## Edit
 

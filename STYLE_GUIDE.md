@@ -13,6 +13,8 @@ It adopts the [Google TypeScript Style Guide](https://google.github.io/styleguid
 
 When this guide is silent, fall back to Google. When this guide and Google conflict, this guide wins inside LoopBack 4 plugins.
 
+For framework patterns (IoC, dependency injection, extension points, interceptors, lifecycle observers, components), defer to LoopBack's official [`loopback-core` skill](https://github.com/loopbackio/loopback-next/tree/master/skills/loopback-core) and its references. This style guide layers plugin-author discipline on top of those patterns; it does not redefine them.
+
 ## 2. File naming
 
 Override Google. Source files use dot-kebab naming, not snake_case:

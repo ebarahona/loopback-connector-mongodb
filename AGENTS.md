@@ -25,6 +25,7 @@ Read these in full before suggesting any change.
 - [./CONTRIBUTING.md](./CONTRIBUTING.md) — local setup, the
   `lint && build && test` gate, git hook paths (lefthook vs `.githooks`),
   PR expectations, release-please flow, bug-report requirements.
+- LoopBack's official [`loopback-core` skill](https://github.com/loopbackio/loopback-next/tree/master/skills/loopback-core) — upstream reference for IoC, dependency injection, extension points, interceptors, lifecycle observers, and components. Defer to this for framework patterns; STYLE_GUIDE.md only documents plugin-author conventions layered on top.
 - [./README.md](./README.md) — package surface: component path vs
   standalone juggler path, `MongoService` API, supported topologies,
   peer-dependency ranges.
@@ -70,6 +71,13 @@ Read these in full before suggesting any change.
 - TypeScript is strict and `any` is banned; an `as unknown as { ... }`
   cast into juggler or driver internals must carry a `// Why:` comment
   and a regression test that fails when the internal field is renamed.
+- The `@changeStream` decorator, `ChangeStreamDiscoverer`, and
+  `MongoChangeStreamServer` form the package's first transport-core
+  integration. They are bound by `MongoChangeStreamComponent`, which is
+  OPT-IN: users register it explicitly alongside `MongoComponent`. The
+  raw `MongoService.watchCollection` / `watchDatabase` / `watchClient`
+  API remains the lower-level path for apps that do not use
+  transport-core.
 
 ## Claude Code users
 
