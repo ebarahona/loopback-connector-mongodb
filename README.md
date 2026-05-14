@@ -379,7 +379,7 @@ Vector search requires MongoDB Atlas (cloud) or Enterprise 8.0+ with the Atlas S
 
 ### Atlas Search index management
 
-Search-index methods aren't yet first-class on `MongoService` (planned). For now, use the driver via `getCollection()`. Driver-doc reference: [Atlas Search Indexes](https://www.mongodb.com/docs/drivers/node/current/indexes/atlas-search-index/).
+Search-index methods aren't yet first-class on `MongoService` (planned). For now, use the driver via `getCollection()`. Driver-doc reference: [Atlas Search Indexes](https://www.mongodb.com/docs/drivers/node/current/atlas-search/).
 
 <details>
 <summary><b>Show example: create and list Atlas Search index</b></summary>
@@ -437,7 +437,7 @@ class CustomService {
 
 </details>
 
-`MongoService.getCollection<T>(name)` retains TypeScript type-safety through the driver's `Collection<T>` shape. See the driver's [Fundamentals](https://www.mongodb.com/docs/drivers/node/current/fundamentals/) and [CRUD Operations](https://www.mongodb.com/docs/drivers/node/current/crud/) for the full native API.
+`MongoService.getCollection<T>(name)` retains TypeScript type-safety through the driver's `Collection<T>` shape. See the driver's [Fundamentals](https://www.mongodb.com/docs/drivers/node/current/get-started/) and [CRUD Operations](https://www.mongodb.com/docs/drivers/node/current/crud/) for the full native API.
 
 ### Arbitrary database commands
 
