@@ -1,7 +1,7 @@
 {
   "name": "@ebarahona/loopback-connector-mongodb",
   "version": "0.0.0",
-  "description": "Native MongoDB service for LoopBack 4. Full driver access: aggregation, Change Streams, Time Series, GridFS, transactions, tailable cursors, and CRUD.",
+  "description": "Full-featured MongoDB connector for LoopBack 4 on driver 7.x. Aggregation, Change Streams, Time Series, GridFS, transactions, tailable cursors, bulk ops, and an injectable MongoService.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -26,7 +26,8 @@
     "prepare": "sh scripts/install-hooks.sh",
     "prepublishOnly": "npm run clean && npm run lint && npm run build && npm test",
     "leak-detection": "node --expose-gc scripts/leak-detection.mjs",
-    "bench": "node bench/index.mjs"
+    "bench": "node bench/index.mjs",
+    "docs": "typedoc"
   },
   "keywords": [
     "loopback",
@@ -45,12 +46,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ebarahona/loopback-service-mongodb.git"
+    "url": "git+https://github.com/ebarahona/loopback-connector-mongodb.git"
   },
   "bugs": {
-    "url": "https://github.com/ebarahona/loopback-service-mongodb/issues"
+    "url": "https://github.com/ebarahona/loopback-connector-mongodb/issues"
   },
-  "homepage": "https://github.com/ebarahona/loopback-service-mongodb#readme",
+  "homepage": "https://github.com/ebarahona/loopback-connector-mongodb#readme",
   "peerDependencies": {
     "@loopback/core": ">=7.0.0 <8.0.0",
     "@loopback/repository": ">=8.0.0 <9.0.0"
@@ -64,6 +65,7 @@
     "@commitlint/config-conventional": "^21.0.1",
     "@loopback/core": "^7.0.12",
     "@loopback/repository": "^8.0.12",
+    "@size-limit/preset-small-lib": "^11.0.0",
     "@types/debug": "^4.1.12",
     "@types/node": "^25.7.0",
     "@typescript-eslint/eslint-plugin": "^8.59.3",
@@ -76,7 +78,9 @@
     "mongodb-memory-server": "^11.1.0",
     "prettier": "^3.2.0",
     "rimraf": "^6.0.1",
+    "size-limit": "^11.0.0",
     "tinybench": "^3.1.1",
+    "typedoc": "^0.28.19",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6",
     "yaml": "^2.9.0"
@@ -88,5 +92,18 @@
   ],
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "size-limit": [
+    {
+      "name": "dist (CommonJS)",
+      "path": "dist/index.js",
+      "limit": "100 KB",
+      "ignore": [
+        "@loopback/core",
+        "@loopback/repository",
+        "mongodb",
+        "debug"
+      ]
+    }
+  ]
 }

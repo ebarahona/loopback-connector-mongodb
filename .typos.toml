@@ -1,0 +1,27 @@
+# Configuration for crate-ci/typos
+# https://github.com/crate-ci/typos
+[files]
+extend-exclude = [
+  "package-lock.json",
+  "dist/",
+  "node_modules/",
+  ".husky/_/",
+  "*.snap",
+]
+
+[default]
+extend-ignore-re = [
+  # Hex strings (likely ObjectId examples, hashes)
+  "[0-9a-fA-F]{24,}",
+  # ObjectId literal references
+  "ObjectId",
+  # GUIDs
+  "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+]
+
+[default.extend-words]
+# MongoDB / driver names
+mongodb = "mongodb"
+loopback = "loopback"
+# Project-local terms
+juggler = "juggler"

@@ -1,0 +1,68 @@
+area:connector:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/connector/**'
+
+area:datasource:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/datasource/**'
+
+area:services:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/services/**'
+
+area:helpers:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/helpers/**'
+
+area:component:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/mongo.component.ts'
+          - 'src/keys.ts'
+
+area:types:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/types.ts'
+          - 'src/index.ts'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/__tests__/**'
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/**/*.yml'
+          - '.github/**/*.yaml'
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'package.json'
+          - 'package-lock.json'
+
+hooks:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.githooks/**'
+          - 'lefthook.yml'
+          - 'scripts/install-hooks.sh'
+
+bench-or-leak:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'bench/**'
+          - 'scripts/leak-detection.mjs'
