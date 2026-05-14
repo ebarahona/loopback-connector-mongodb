@@ -1,9 +1,13 @@
 name: release-please
 
-# Frozen pre-1.0: triggered manually from the GitHub Actions UI only.
-# When ready to release 1.0, also set `release-as: "1.0.0"` and
-# `bump-minor-pre-major: false` in release-please-config.json.
+# Auto-runs on every push to main. release-please opens / updates a
+# rolling release PR collecting Conventional Commit entries; merging
+# that PR triggers a tag + npm publish on the next push.
+# workflow_dispatch retained for manual re-runs (e.g. token rotation
+# trial publishes).
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
