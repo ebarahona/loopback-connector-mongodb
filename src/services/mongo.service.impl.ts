@@ -34,9 +34,29 @@ import type {MongoService} from './mongo.service';
 
 const debug = debugFactory('loopback:connector:mongodb:service');
 
+/**
+ * Thrown when an operation requires a replica set or sharded cluster
+ * but the connected server is a standalone instance.
+ *
+ * @public
+ */
+export class MongoTopologyError extends Error {
+  override readonly name = 'MongoTopologyError';
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
+ * Default implementation of {@link MongoService}, providing native MongoDB
+ * driver access on top of the shared {@link MongoConnectionManager}.
+ *
+ * @public
+ */
 @injectable({scope: BindingScope.SINGLETON})
 export class MongoServiceImpl implements MongoService {
   private manager: MongoConnectionManager;
+  private readonly openStreams = new Set<ChangeStream>();
 
   constructor(
     @inject(MongoBindings.CONNECTION_MANAGER)
@@ -94,7 +114,12 @@ export class MongoServiceImpl implements MongoService {
   ): ChangeStream<T, ChangeStreamDocument<T>> {
     this.assertReplicaSet('watchCollection');
     debug('watchCollection [%s]', collection);
-    return this.getCollection<T>(collection).watch(pipeline, options);
+    const stream = this.getCollection<T>(collection).watch<T>(
+      pipeline,
+      options,
+    );
+    this.trackStream(stream as ChangeStream);
+    return stream;
   }
 
   watchDatabase(
@@ -103,7 +128,9 @@ export class MongoServiceImpl implements MongoService {
   ): ChangeStream {
     this.assertReplicaSet('watchDatabase');
     debug('watchDatabase');
-    return this.getDb().watch(pipeline, options);
+    const stream = this.getDb().watch(pipeline, options);
+    this.trackStream(stream);
+    return stream;
   }
 
   watchClient(
@@ -112,7 +139,18 @@ export class MongoServiceImpl implements MongoService {
   ): ChangeStream {
     this.assertReplicaSet('watchClient');
     debug('watchClient');
-    return this.manager.getClient().watch(pipeline, options);
+    const stream = this.manager.getClient().watch(pipeline, options);
+    this.trackStream(stream);
+    return stream;
+  }
+
+  private trackStream(stream: ChangeStream): void {
+    this.openStreams.add(stream);
+    const cleanup = (): void => {
+      this.openStreams.delete(stream);
+    };
+    stream.once('close', cleanup);
+    stream.once('end', cleanup);
   }
 
   // ---- Time Series ----
@@ -264,10 +302,18 @@ export class MongoServiceImpl implements MongoService {
   private assertReplicaSet(operation: string): void {
     const topo = this.manager.getTopology();
     if (!topo.isReplicaSet) {
-      throw new Error(
+      throw new MongoTopologyError(
         `${operation} requires a replica set or sharded cluster. ` +
           `Current topology: ${topo.topologyType}`,
       );
     }
+  }
+
+  // ---- Lifecycle ----
+
+  async closeAll(): Promise<void> {
+    const streams = [...this.openStreams];
+    this.openStreams.clear();
+    await Promise.allSettled(streams.map(s => s.close()));
   }
 }

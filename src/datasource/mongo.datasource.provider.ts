@@ -9,6 +9,8 @@ import {MongoDataSource} from './mongo.datasource';
  * Provider that yields a singleton MongoDataSource wired to the
  * shared MongoConnectionManager. Bound by MongoComponent at
  * MongoBindings.DATASOURCE.
+ *
+ * @public
  */
 export class MongoDataSourceProvider implements Provider<juggler.DataSource> {
   constructor(

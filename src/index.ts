@@ -5,7 +5,7 @@ export {MongoComponent, MongoLifecycleObserver} from './mongo.component';
 export {MongoBindings} from './keys';
 
 // Types
-export {MongoConnectorConfig} from './types';
+export type {MongoConnectorConfig} from './types';
 
 // Connector (public: class + juggler initializer)
 export {MongoConnector, initialize} from './connector';
@@ -29,3 +29,8 @@ export {MongoServiceImpl} from './services';
 // Connection management
 export {MongoConnectionManager} from './helpers';
 export type {TopologyInfo} from './helpers';
+
+// Typed error classes for instanceof matching
+export {MongoConnectorError} from './connector';
+export {MongoTopologyError} from './services';
+export {MongoConnectionError} from './helpers';

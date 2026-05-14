@@ -156,4 +156,15 @@ export interface MongoService {
 
   isReplicaSet(): boolean;
   getTopologyType(): string;
+
+  // ---- Lifecycle ----
+
+  /**
+   * Close all change streams opened by this service. Idempotent.
+   * Called automatically by `MongoLifecycleObserver.stop()` to prevent
+   * server-side cursor leaks on app shutdown.
+   *
+   * @public
+   */
+  closeAll(): Promise<void>;
 }

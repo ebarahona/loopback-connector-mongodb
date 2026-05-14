@@ -14,6 +14,10 @@ import {buildWhere, buildSort, buildFields} from './query-builder';
 import type {ModelDefinition} from './property-mapping';
 import {toDatabase, fromDatabase, getIdPropertyName} from './property-mapping';
 import {MongoConnectionManager} from '../helpers/connection-manager';
+import {validateConfig} from '../helpers/config-validator';
+import {MongoConnectorError} from './errors';
+
+export {MongoConnectorError};
 
 const debug = debugFactory('loopback:connector:mongodb');
 
@@ -46,12 +50,14 @@ const JUGGLER_BRIDGED_METHODS = [
  * MongoDB connector for LoopBack 4.
  *
  * Implements the loopback-connector Connector interface using the
- * native MongoDB Node.js driver 6.x.
+ * native MongoDB Node.js driver 7.x.
  *
  * Uses a shared MongoConnectionManager for connection lifecycle.
  * When used via MongoComponent, the same manager is shared with
  * MongoService. When used standalone via juggler DataSource, the
  * connector creates its own manager.
+ *
+ * @public
  */
 export class MongoConnector {
   name = 'mongodb';
@@ -303,6 +309,16 @@ export class MongoConnector {
     const findOptions: Record<string, unknown> = {...sessionOpts};
     if (projection) findOptions.projection = projection;
 
+    // Driver 7 removed the implicit getMore batch cap. Provide a sane
+    // default when the caller does not supply an explicit limit.
+    if (
+      filter?.limit === undefined &&
+      filter?.skip === undefined &&
+      filter?.offset === undefined
+    ) {
+      findOptions.batchSize = 1000;
+    }
+
     let cursor = collection.find(where, findOptions);
     if (sort) cursor = cursor.sort(sort);
     if (filter?.limit) cursor = cursor.limit(filter.limit as number);
@@ -436,6 +452,18 @@ export class MongoConnector {
     return result ? this.fromDb(modelName, result) : data;
   }
 
+  /**
+   * Find a document matching `filter` or create it from `data`.
+   *
+   * @experimental
+   *
+   * KNOWN LIMITATION: on a duplicate-key conflict (error 11000), the
+   * follow-up lookup re-uses the caller's `filter`. If the conflicting
+   * unique index covers a field NOT in `filter`, the returned document
+   * may be unrelated to the duplicate. Use `upsert` via
+   * `updateOrCreate()` or the connector's raw `replaceOne` for stricter
+   * semantics until this is addressed in a future release.
+   */
   async findOrCreate(
     modelName: string,
     filter: Record<string, unknown>,
@@ -510,7 +538,7 @@ export class MongoConnector {
 
     const updated = await this.find(modelName, id, options);
     if (!updated) {
-      throw new Error(
+      throw new MongoConnectorError(
         `Document not found after updateAttributes: ${modelName}/${String(id)}`,
       );
     }
@@ -560,13 +588,26 @@ export class MongoConnector {
     'stats',
   ]);
 
+  /**
+   * Raw-driver escape hatch. Calls the named MongoDB Collection method
+   * directly with the provided args.
+   *
+   * The `SAFE_COMMANDS` allowlist controls which methods may be called;
+   * argument shape is NOT validated. Malformed args can cause data
+   * loss (e.g. an empty filter on `deleteMany`). Prefer the typed
+   * helpers on `MongoService` or the connector's CRUD methods.
+   *
+   * @experimental
+   * @throws MongoConnectorError if the command is not in the allowlist
+   *   or is not a function on the Collection.
+   */
   async execute(
     modelName: string,
     command: string,
     ...args: unknown[]
   ): Promise<unknown> {
     if (!MongoConnector.SAFE_COMMANDS.has(command)) {
-      throw new Error(
+      throw new MongoConnectorError(
         `Command "${command}" is not in the allowlist. ` +
           'Use getClient() for unrestricted access.',
       );
@@ -576,7 +617,9 @@ export class MongoConnector {
 
     const method = collection[command as keyof Collection];
     if (typeof method !== 'function') {
-      throw new Error(`Unknown MongoDB collection command: ${command}`);
+      throw new MongoConnectorError(
+        `Unknown MongoDB collection command: ${command}`,
+      );
     }
 
     debug('execute [%s].%s', modelName, command);
@@ -585,6 +628,15 @@ export class MongoConnector {
 
   // ---- Transactions ----
 
+  /**
+   * Begin a MongoDB transaction and return the underlying session.
+   *
+   * NOTE: this method does NOT auto-retry on `TransientTransactionError`
+   * or `UnknownTransactionCommitResult`. The juggler shape mandates
+   * separate begin/commit/rollback. For new code, prefer
+   * `MongoService.withTransaction()`, which wraps the retry loop
+   * automatically.
+   */
   async beginTransaction(options?: TransactionOptions): Promise<ClientSession> {
     if (!this.connectionManager.isConnected()) {
       await this.connectionManager.connect();
@@ -597,14 +649,28 @@ export class MongoConnector {
   }
 
   async commit(session: ClientSession): Promise<void> {
-    await session.commitTransaction();
-    await session.endSession();
+    try {
+      await session.commitTransaction();
+    } finally {
+      try {
+        await session.endSession();
+      } catch (cleanupErr) {
+        debug('endSession after commit failed: %O', cleanupErr);
+      }
+    }
     debug('transaction committed');
   }
 
   async rollback(session: ClientSession): Promise<void> {
-    await session.abortTransaction();
-    await session.endSession();
+    try {
+      await session.abortTransaction();
+    } finally {
+      try {
+        await session.endSession();
+      } catch (cleanupErr) {
+        debug('endSession after rollback failed: %O', cleanupErr);
+      }
+    }
     debug('transaction rolled back');
   }
 
@@ -682,14 +748,15 @@ export class MongoConnector {
  * Juggler invokes this with `(dataSource, callback)` and expects
  * the callback to signal "setup done." This is the one place the
  * connector still exposes a callback contract.
+ *
+ * @public
  */
-type InitializeCallback = (err: Error | null) => void;
-
 export function initialize(
   dataSource: Record<string, unknown>,
-  callback?: InitializeCallback,
+  callback?: (err: Error | null) => void,
 ): void {
   const settings = (dataSource.settings as MongoConnectorConfig) ?? {};
+  validateConfig(settings);
   const connector = new MongoConnector(settings);
   connector.dataSource = dataSource;
   dataSource.connector = connector;

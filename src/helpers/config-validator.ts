@@ -63,10 +63,23 @@ export function validateConfig(config: MongoConnectorConfig | undefined): void {
 
 /**
  * Replace `username:password@` with `<credentials>@` in a connection
- * string. Safe to log.
+ * string. Safe to log. Handles credentials containing literal `@`
+ * characters by parsing the URL rather than relying on regex.
  *
  * @public
  */
 export function redactUrl(url: string): string {
-  return url.replace(/\/\/[^@/]+@/, '//<credentials>@');
+  try {
+    const parsed = new URL(url);
+    if (parsed.username || parsed.password) {
+      parsed.username = '';
+      parsed.password = '';
+      return parsed.toString().replace('//', '//<credentials>@');
+    }
+    return url;
+  } catch {
+    // Fall back to regex-based redaction if URL parsing fails (e.g.
+    // for non-URL inputs reused for logging).
+    return url.replace(/\/\/[^/]*@/, '//<credentials>@');
+  }
 }

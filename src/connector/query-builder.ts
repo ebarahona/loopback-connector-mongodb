@@ -1,5 +1,6 @@
 import type {Document, Filter, Sort} from 'mongodb';
 import {toObjectId} from './coercion';
+import {MongoConnectorError} from './errors';
 
 /**
  * Convert a LoopBack where filter to a MongoDB query document.
@@ -12,6 +13,11 @@ import {toObjectId} from './coercion';
  * - Logical operators: and, or, nor
  * - Existence: exists
  * - Null type matching
+ *
+ * Performance note: `like` and `regexp` build MongoDB `$regex`
+ * queries. Unanchored patterns (no leading `^`) cause a full
+ * collection scan unless backed by a text index. Use `inq` /
+ * exact-match where possible.
  *
  * @param where - LoopBack where filter
  * @param idName - The model's ID property name (mapped to _id)
@@ -28,7 +34,7 @@ export function buildWhere(
     // Logical operators
     if (key === 'and' || key === 'or' || key === 'nor') {
       if (!Array.isArray(value)) {
-        throw new Error(`"${key}" operator requires an array`);
+        throw new MongoConnectorError(`"${key}" operator requires an array`);
       }
       const conditions = value as Record<string, unknown>[];
       query[`$${key}`] = conditions.map(c => buildWhere(c, idName));
@@ -75,7 +81,7 @@ export function buildWhere(
           break;
         case 'between':
           if (!Array.isArray(operand) || operand.length !== 2) {
-            throw new Error(
+            throw new MongoConnectorError(
               `"between" operator requires a 2-element array, got: ${JSON.stringify(operand)}`,
             );
           }
@@ -101,8 +107,14 @@ export function buildWhere(
         case 'regexp':
           if (operand instanceof RegExp) {
             mongoExpr.$regex = operand;
+          } else if (typeof operand === 'string' && operand.length <= 256) {
+            // Hard cap on pattern length to bound RegExp compilation cost.
+            // Callers wanting arbitrary patterns should pass a real RegExp.
+            mongoExpr.$regex = new RegExp(operand);
           } else {
-            mongoExpr.$regex = new RegExp(String(operand));
+            throw new MongoConnectorError(
+              `"regexp" operator requires a RegExp instance or a string ≤ 256 chars; got: ${typeof operand}`,
+            );
           }
           break;
         case 'exists':

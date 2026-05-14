@@ -1,9 +1,18 @@
+/**
+ * Property and model mapping helpers for the MongoDB connector.
+ *
+ * Decimal128 values returned through this connector pass through
+ * `parseFloat` and may lose precision outside JS Number range. A
+ * `decimalAsString` mode is planned.
+ */
 import type {Document} from 'mongodb';
 import {ObjectId, Binary, Decimal128} from 'mongodb';
 import {toObjectId, toDecimal128} from './coercion';
 
 /**
  * Model property definition as stored by the juggler connector.
+ *
+ * @public
  */
 export interface PropertyDefinition {
   type?: unknown;
@@ -16,6 +25,8 @@ export interface PropertyDefinition {
 
 /**
  * Model definition as stored by the juggler connector.
+ *
+ * @public
  */
 export interface ModelDefinition {
   model: {modelName: string};

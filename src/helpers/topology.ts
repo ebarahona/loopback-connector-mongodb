@@ -1,5 +1,11 @@
 import type {MongoClient} from 'mongodb';
 
+/**
+ * Describes the deployment topology shape of a connected MongoClient
+ * (standalone, replica set, sharded, or unknown).
+ *
+ * @public
+ */
 export interface TopologyInfo {
   isReplicaSet: boolean;
   topologyType: string;
@@ -8,6 +14,13 @@ export interface TopologyInfo {
 /**
  * Detect the topology type of a connected MongoClient.
  * Call after client.connect() has resolved.
+ *
+ * @remarks
+ * Relies on driver internals (`client.topology.description.type`)
+ * which are not guaranteed stable across MongoDB driver majors and
+ * may need to be revisited on driver upgrades.
+ *
+ * @experimental
  */
 export function detectTopology(client: MongoClient): TopologyInfo {
   // Access the internal topology description

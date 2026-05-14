@@ -72,4 +72,18 @@ describe('redactUrl', () => {
       'mongodb://localhost:27017/db',
     );
   });
+
+  it('redacts credentials containing literal @ characters', () => {
+    // A password containing an unencoded @ would defeat the original
+    // regex; URL parsing handles it correctly.
+    const result = redactUrl('mongodb://alice:pa@ss@host:27017/db');
+    expect(result).not.toContain('pa@ss');
+    expect(result).not.toContain('alice');
+    expect(result).toContain('<credentials>');
+  });
+
+  it('leaves non-URL strings untouched gracefully', () => {
+    // The fallback path should not throw on garbage input.
+    expect(redactUrl('not a url at all')).toBe('not a url at all');
+  });
 });

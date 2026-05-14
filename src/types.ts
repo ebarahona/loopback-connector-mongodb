@@ -2,6 +2,8 @@ import type {MongoClientOptions} from 'mongodb';
 
 /**
  * Configuration for the MongoDB connector and service.
+ *
+ * @public
  */
 export interface MongoConnectorConfig {
   /**

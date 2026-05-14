@@ -16,6 +16,19 @@ type ConnectionState =
   | 'disconnecting';
 
 /**
+ * Thrown when an operation against the connection manager is invalid
+ * for its current state (no client connected, manager disposed, etc.).
+ *
+ * @public
+ */
+export class MongoConnectionError extends Error {
+  override readonly name = 'MongoConnectionError';
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
  * Centralized connection manager for the MongoDB client.
  *
  * Owns one MongoClient singleton. Both the juggler connector and
@@ -26,6 +39,8 @@ type ConnectionState =
  * - `disconnect()` is idempotent and coordinates with in-flight connects.
  * - Repeated start/stop cycles are safe (test restarts, hot reload).
  * - A generation counter prevents stale connect from overriding disconnect.
+ *
+ * @public
  */
 export class MongoConnectionManager {
   private client?: MongoClient;
@@ -130,7 +145,7 @@ export class MongoConnectionManager {
    */
   getClient(): MongoClient {
     if (!this.client || this.state !== 'connected') {
-      throw new Error('MongoClient is not connected');
+      throw new MongoConnectionError('MongoClient is not connected');
     }
     return this.client;
   }
@@ -140,11 +155,11 @@ export class MongoConnectionManager {
    */
   getDb(name?: string): Db {
     if (!this.client || this.state !== 'connected') {
-      throw new Error('MongoClient is not connected');
+      throw new MongoConnectionError('MongoClient is not connected');
     }
     if (name) return this.client.db(name);
     if (!this.db) {
-      throw new Error('MongoClient is not connected');
+      throw new MongoConnectionError('MongoClient is not connected');
     }
     return this.db;
   }
@@ -193,7 +208,7 @@ export class MongoConnectionManager {
     // set connected state -- close the client we just opened
     if (this.generation !== gen) {
       await client.close().catch(() => {});
-      throw new Error('Connection cancelled by disconnect');
+      throw new MongoConnectionError('Connection cancelled by disconnect');
     }
 
     this.client = client;

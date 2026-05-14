@@ -13,6 +13,7 @@ import {MongoConnectionManager} from './helpers/connection-manager';
 import {MongoDataSourceProvider} from './datasource/mongo.datasource.provider';
 import {MongoDataSourceFactoryProvider} from './datasource/mongo.datasource.factory';
 import {MongoServiceImpl} from './services/mongo.service.impl';
+import type {MongoService} from './services/mongo.service';
 import {MongoConnectorConfig} from './types';
 
 const debug = debugFactory('loopback:connector:mongodb:lifecycle');
@@ -35,13 +36,21 @@ class ConnectionManagerProvider {
  * Lifecycle observer that connects and disconnects the shared
  * MongoConnectionManager.
  *
+ * On stop, also closes any change streams opened through the
+ * `MongoService` (if bound) before disconnecting the client, to
+ * prevent server-side cursor leaks on app shutdown.
+ *
  * Idempotent: repeated start/stop cycles are safe.
+ *
+ * @public
  */
 @lifeCycleObserver('mongodb')
 export class MongoLifecycleObserver implements LifeCycleObserver {
   constructor(
     @inject(MongoBindings.CONNECTION_MANAGER)
     private manager: MongoConnectionManager,
+    @inject(MongoBindings.SERVICE, {optional: true})
+    private service?: MongoService,
   ) {}
 
   async start(): Promise<void> {
@@ -50,6 +59,13 @@ export class MongoLifecycleObserver implements LifeCycleObserver {
   }
 
   async stop(): Promise<void> {
+    if (this.service) {
+      try {
+        await this.service.closeAll();
+      } catch (err) {
+        debug('closeAll failed during shutdown: %O', err);
+      }
+    }
     await this.manager.disconnect();
     debug('MongoClient disconnected');
   }

@@ -115,6 +115,27 @@ describe('buildWhere', () => {
     const result = buildWhere({tag: {gt: 1, weird: 2}});
     expect(result.tag).toEqual({gt: 1, weird: 2});
   });
+
+  it('accepts a RegExp instance for regexp operator', () => {
+    const result = buildWhere({name: {regexp: /^foo/}});
+    expect(result.name).toEqual({$regex: /^foo/});
+  });
+
+  it('accepts short string patterns for regexp operator', () => {
+    const result = buildWhere({name: {regexp: '^foo'}});
+    expect((result.name as {$regex: RegExp}).$regex).toBeInstanceOf(RegExp);
+  });
+
+  it('rejects regexp patterns over 256 chars', () => {
+    const long = 'a'.repeat(257);
+    expect(() => buildWhere({name: {regexp: long}})).toThrow(/regexp/);
+  });
+
+  it('rejects non-string non-RegExp regexp operands', () => {
+    expect(() =>
+      buildWhere({name: {regexp: {foo: 'bar'} as unknown as string}}),
+    ).toThrow(/regexp/);
+  });
 });
 
 describe('buildSort', () => {
