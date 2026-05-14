@@ -54,9 +54,10 @@ export function buildWhere(
     const spec = value as Record<string, unknown>;
     const mongoExpr: Record<string, unknown> = {};
     let hasOperator = false;
+    let allKeysAreOperators = true;
 
     for (const [op, operand] of Object.entries(spec)) {
-      hasOperator = true;
+      let matched = true;
       switch (op) {
         case 'gt':
           mongoExpr.$gt = fieldName === '_id' ? toObjectId(operand) : operand;
@@ -117,18 +118,28 @@ export function buildWhere(
           mongoExpr.$exists = Boolean(operand);
           break;
         default:
-          // Pass through unknown operators (e.g. $elemMatch, $size)
           if (op.startsWith('$')) {
+            // Pass through native operators (e.g. $elemMatch, $size)
             mongoExpr[op] = operand;
+          } else {
+            matched = false;
           }
           break;
       }
+      if (matched) {
+        hasOperator = true;
+      } else {
+        allKeysAreOperators = false;
+      }
     }
 
-    if (hasOperator) {
+    if (hasOperator && allKeysAreOperators) {
       query[fieldName] = mongoExpr;
     } else {
-      // Plain object value (equality match)
+      // Plain object value (equality match). Includes the
+      // mixed case where some keys look like operators but
+      // others do not -- safer to treat as a literal match
+      // than to silently drop the non-operator keys.
       query[fieldName] =
         fieldName === '_id' ? toObjectId(value) : value;
     }

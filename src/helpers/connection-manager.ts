@@ -25,6 +25,7 @@ export class MongoConnectionManager {
   private db?: Db;
   private state: ConnectionState = 'disconnected';
   private connectPromise?: Promise<void>;
+  private disconnectPromise?: Promise<void>;
   private topologyInfo?: TopologyInfo;
   private generation = 0;
 
@@ -33,12 +34,18 @@ export class MongoConnectionManager {
   /**
    * Connect to MongoDB. Idempotent and concurrency-safe.
    * Concurrent calls share the same connection promise.
-   * If disconnect is in progress, waits for it then connects.
+   * If disconnect is in progress, awaits the real disconnect
+   * promise (no spin wait, no timeout) before starting connect.
    */
   async connect(): Promise<void> {
     if (this.isConnected()) return;
-    if (this.state === 'disconnecting') {
-      await this.waitForDisconnect();
+
+    if (this.disconnectPromise) {
+      try {
+        await this.disconnectPromise;
+      } catch {
+        // disconnect failed; proceed with a fresh connect
+      }
     }
     if (this.isConnected()) return;
 
@@ -64,12 +71,17 @@ export class MongoConnectionManager {
   }
 
   /**
-   * Disconnect from MongoDB. Idempotent.
+   * Disconnect from MongoDB. Idempotent and concurrency-safe.
+   * Concurrent calls share the same disconnect promise.
    * Waits for any in-flight connect to settle before closing.
    * Uses generation counter to prevent stale connect from
    * overriding this disconnect.
    */
   async disconnect(): Promise<void> {
+    if (this.disconnectPromise) {
+      await this.disconnectPromise;
+      return;
+    }
     if (this.state === 'disconnected' && !this.client && !this.connectPromise) {
       return;
     }
@@ -77,12 +89,18 @@ export class MongoConnectionManager {
     this.generation++;
     this.state = 'disconnecting';
 
-    // Wait for in-flight connect to settle
+    this.disconnectPromise = this.doDisconnect().finally(() => {
+      this.disconnectPromise = undefined;
+    });
+    await this.disconnectPromise;
+  }
+
+  private async doDisconnect(): Promise<void> {
     if (this.connectPromise) {
       try {
         await this.connectPromise;
       } catch {
-        // connect failed, proceed with disconnect
+        // connect failed; proceed with disconnect
       }
     }
 
@@ -185,16 +203,6 @@ export class MongoConnectionManager {
       dbName,
       this.topologyInfo.topologyType,
     );
-  }
-
-  private async waitForDisconnect(): Promise<void> {
-    // Spin-wait is not ideal, but disconnect is fast
-    // and this only happens in edge cases (shutdown during startup)
-    let attempts = 0;
-    while (this.state === 'disconnecting' && attempts < 50) {
-      await new Promise(r => setTimeout(r, 10));
-      attempts++;
-    }
   }
 
   private extractDatabaseFromUrl(url: string): string {

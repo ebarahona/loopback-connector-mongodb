@@ -4,6 +4,12 @@
   "description": "Native MongoDB service for LoopBack 4. Full driver access: aggregation, Change Streams, Time Series, GridFS, transactions, tailable cursors, and CRUD.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "engines": {
     "node": ">=18"
   },

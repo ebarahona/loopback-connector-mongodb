@@ -24,6 +24,21 @@ const debug = debugFactory('loopback:connector:mongodb');
 type Callback = (err: Error | null, result?: unknown) => void;
 
 /**
+ * Wrap a promise-returning method to support juggler callbacks.
+ * If the last argument is a function (callback), it's extracted
+ * and invoked with (err, result) when the promise settles.
+ */
+function withCallback<T>(promise: Promise<T>, cb?: Callback): Promise<T> {
+  if (cb) {
+    promise.then(
+      result => cb(null, result),
+      err => cb(err),
+    );
+  }
+  return promise;
+}
+
+/**
  * MongoDB connector for LoopBack 4.
  *
  * Implements the loopback-connector Connector interface using the
@@ -75,7 +90,12 @@ export class MongoConnector {
    * Connect to MongoDB. Delegates to the connection manager.
    * Idempotent and concurrency-safe.
    */
-  async connect(): Promise<Db> {
+  connect(callback?: Callback): Promise<Db> | void {
+    const promise = this.doConnect();
+    return withCallback(promise, callback);
+  }
+
+  private async doConnect(): Promise<Db> {
     await this.connectionManager.connect();
     return this.connectionManager.getDb();
   }
@@ -88,7 +108,12 @@ export class MongoConnector {
    * via MongoComponent, the lifecycle observer owns disconnect --
    * calling this is a no-op.
    */
-  async disconnect(): Promise<void> {
+  disconnect(callback?: Callback): Promise<void> | void {
+    const promise = this.doDisconnect();
+    return withCallback(promise, callback);
+  }
+
+  private async doDisconnect(): Promise<void> {
     if (!this.ownsConnectionManager) {
       debug('disconnect skipped (shared connection manager)');
       return;
@@ -96,7 +121,12 @@ export class MongoConnector {
     await this.connectionManager.disconnect();
   }
 
-  async ping(): Promise<void> {
+  ping(callback?: Callback): Promise<void> | void {
+    const promise = this.doPing();
+    return withCallback(promise, callback);
+  }
+
+  private async doPing(): Promise<void> {
     await this.connectionManager.ping();
   }
 
@@ -142,8 +172,22 @@ export class MongoConnector {
   }
 
   // ---- CRUD operations ----
+  // All CRUD methods support both async/await and juggler callback
+  // patterns. When the last argument is a function, it's treated as
+  // a callback: (err, result) => void.
 
-  async create(
+  create(
+    modelName: string,
+    data: Record<string, unknown>,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<unknown> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doCreate(modelName, data, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doCreate(
     modelName: string,
     data: Record<string, unknown>,
     options?: Record<string, unknown>,
@@ -179,7 +223,18 @@ export class MongoConnector {
     return idValue;
   }
 
-  async find(
+  find(
+    modelName: string,
+    id: unknown,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<Record<string, unknown> | null> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doFind(modelName, id, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doFind(
     modelName: string,
     id: unknown,
     options?: Record<string, unknown>,
@@ -203,7 +258,31 @@ export class MongoConnector {
     return this.fromDb(modelName, doc);
   }
 
-  async all(
+  all(
+    modelName: string,
+    filter?: Record<string, unknown> | Callback,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<Record<string, unknown>[]> | void {
+    let filterVal: Record<string, unknown> | undefined;
+    let cb: Callback | undefined;
+    let opts: Record<string, unknown> | undefined;
+
+    if (typeof filter === 'function') {
+      cb = filter;
+      filterVal = undefined;
+    } else {
+      filterVal = filter;
+      const parsed = this.parseOptionsCallback(options, callback);
+      cb = parsed.cb;
+      opts = parsed.opts;
+    }
+
+    const promise = this.doAll(modelName, filterVal, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doAll(
     modelName: string,
     filter?: Record<string, unknown>,
     options?: Record<string, unknown>,
@@ -243,7 +322,19 @@ export class MongoConnector {
     return docs.map(doc => this.fromDb(modelName, doc));
   }
 
-  async updateAll(
+  updateAll(
+    modelName: string,
+    where: Record<string, unknown> | undefined,
+    data: Record<string, unknown>,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<{count: number}> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doUpdateAll(modelName, where, data, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doUpdateAll(
     modelName: string,
     where: Record<string, unknown> | undefined,
     data: Record<string, unknown>,
@@ -272,7 +363,18 @@ export class MongoConnector {
     return {count: result.modifiedCount};
   }
 
-  async deleteAll(
+  deleteAll(
+    modelName: string,
+    where: Record<string, unknown> | undefined,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<{count: number}> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doDeleteAll(modelName, where, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doDeleteAll(
     modelName: string,
     where: Record<string, unknown> | undefined,
     options?: Record<string, unknown>,
@@ -290,7 +392,31 @@ export class MongoConnector {
     return {count: result.deletedCount};
   }
 
-  async count(
+  count(
+    modelName: string,
+    where?: Record<string, unknown> | Callback,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<number> | void {
+    let whereVal: Record<string, unknown> | undefined;
+    let cb: Callback | undefined;
+    let opts: Record<string, unknown> | undefined;
+
+    if (typeof where === 'function') {
+      cb = where;
+      whereVal = undefined;
+    } else {
+      whereVal = where;
+      const parsed = this.parseOptionsCallback(options, callback);
+      cb = parsed.cb;
+      opts = parsed.opts;
+    }
+
+    const promise = this.doCount(modelName, whereVal, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doCount(
     modelName: string,
     where?: Record<string, unknown>,
     options?: Record<string, unknown>,
@@ -305,7 +431,19 @@ export class MongoConnector {
     return collection.countDocuments(query, sessionOpts);
   }
 
-  async replaceById(
+  replaceById(
+    modelName: string,
+    id: unknown,
+    data: Record<string, unknown>,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<{count: number}> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doReplaceById(modelName, id, data, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doReplaceById(
     modelName: string,
     id: unknown,
     data: Record<string, unknown>,
@@ -336,7 +474,18 @@ export class MongoConnector {
     return {count: result.modifiedCount};
   }
 
-  async updateOrCreate(
+  updateOrCreate(
+    modelName: string,
+    data: Record<string, unknown>,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<Record<string, unknown>> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doUpdateOrCreate(modelName, data, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doUpdateOrCreate(
     modelName: string,
     data: Record<string, unknown>,
     options?: Record<string, unknown>,
@@ -347,7 +496,7 @@ export class MongoConnector {
 
     const id = data[idName];
     if (id === null || id === undefined) {
-      const insertedId = await this.create(modelName, data, options);
+      const insertedId = await this.doCreate(modelName, data, options);
       return {...data, [idName]: insertedId};
     }
 
@@ -372,20 +521,32 @@ export class MongoConnector {
     return result ? this.fromDb(modelName, result) : data;
   }
 
-  async findOrCreate(
+  findOrCreate(
+    modelName: string,
+    filter: Record<string, unknown>,
+    data: Record<string, unknown>,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<[Record<string, unknown>, boolean]> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doFindOrCreate(modelName, filter, data, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doFindOrCreate(
     modelName: string,
     filter: Record<string, unknown>,
     data: Record<string, unknown>,
     options?: Record<string, unknown>,
   ): Promise<[Record<string, unknown>, boolean]> {
     try {
-      const id = await this.create(modelName, data, options);
+      const id = await this.doCreate(modelName, data, options);
       const modelDef = this._models[modelName];
       const idName = getIdPropertyName(modelDef);
       return [{...data, [idName]: id}, true];
     } catch (err) {
       if ((err as {code?: number}).code === 11000) {
-        const existing = await this.all(modelName, filter, options);
+        const existing = await this.doAll(modelName, filter, options);
         if (existing.length > 0) {
           return [existing[0], false];
         }
@@ -394,13 +555,119 @@ export class MongoConnector {
     }
   }
 
-  async exists(
+  exists(
+    modelName: string,
+    id: unknown,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<boolean> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doExists(modelName, id, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doExists(
     modelName: string,
     id: unknown,
     options?: Record<string, unknown>,
   ): Promise<boolean> {
-    const result = await this.find(modelName, id, options);
+    const result = await this.doFind(modelName, id, options);
     return result !== null;
+  }
+
+  // ---- Juggler-compatible aliases ----
+  // The juggler DataAccessObject expects specific method names
+  // that differ from our public API.
+
+  /**
+   * Juggler alias for updateAll.
+   */
+  update(
+    modelName: string,
+    where: Record<string, unknown> | undefined,
+    data: Record<string, unknown>,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<{count: number}> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doUpdateAll(modelName, where, data, opts);
+    return withCallback(promise, cb);
+  }
+
+  /**
+   * Juggler alias for deleteAll.
+   */
+  destroyAll(
+    modelName: string,
+    where: Record<string, unknown> | undefined,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<{count: number}> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doDeleteAll(modelName, where, opts);
+    return withCallback(promise, cb);
+  }
+
+  /**
+   * Juggler: update specific attributes on a single document by id.
+   */
+  updateAttributes(
+    modelName: string,
+    id: unknown,
+    data: Record<string, unknown>,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<Record<string, unknown>> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doUpdateAttributes(modelName, id, data, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doUpdateAttributes(
+    modelName: string,
+    id: unknown,
+    data: Record<string, unknown>,
+    options?: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const modelDef = this._models[modelName];
+    const idName = getIdPropertyName(modelDef);
+
+    await this.doUpdateAll(
+      modelName,
+      {[idName]: id},
+      data,
+      options,
+    );
+
+    const updated = await this.doFind(modelName, id, options);
+    if (!updated) {
+      throw new Error(
+        `Document not found after updateAttributes: ${modelName}/${String(id)}`,
+      );
+    }
+    return updated;
+  }
+
+  /**
+   * Juggler: save (upsert) a document.
+   */
+  save(
+    modelName: string,
+    data: Record<string, unknown>,
+    options?: Record<string, unknown> | Callback,
+    callback?: Callback,
+  ): Promise<Record<string, unknown>> | void {
+    const {cb, opts} = this.parseOptionsCallback(options, callback);
+    const promise = this.doSave(modelName, data, opts);
+    return withCallback(promise, cb);
+  }
+
+  private async doSave(
+    modelName: string,
+    data: Record<string, unknown>,
+    options?: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.doUpdateOrCreate(modelName, data, options);
   }
 
   // ---- Direct execution ----
@@ -533,6 +800,23 @@ export class MongoConnector {
     return data;
   }
 
+  /**
+   * Parse options/callback from juggler-style arguments.
+   * The juggler calls methods with either:
+   *   (modelName, ...args, options, callback)
+   *   (modelName, ...args, callback)
+   * This detects which pattern is being used.
+   */
+  private parseOptionsCallback(
+    optionsOrCb?: Record<string, unknown> | Callback,
+    cb?: Callback,
+  ): {opts?: Record<string, unknown>; cb?: Callback} {
+    if (typeof optionsOrCb === 'function') {
+      return {cb: optionsOrCb};
+    }
+    return {opts: optionsOrCb, cb};
+  }
+
   private extractSessionOptions(
     options?: Record<string, unknown>,
   ): {session?: ClientSession} {
@@ -560,10 +844,7 @@ export function initialize(
     if (settings.lazyConnect) {
       process.nextTick(() => callback(null));
     } else {
-      connector
-        .connect()
-        .then(() => callback(null))
-        .catch(err => callback(err));
+      connector.connect(callback);
     }
   }
 }

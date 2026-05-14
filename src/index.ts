@@ -11,6 +11,9 @@ export {MongoConnectorConfig} from './types';
 export {MongoConnector, initialize} from './connector';
 export type {ModelDefinition, PropertyDefinition} from './connector';
 
+// DataSource (shared-manager juggler DataSource + provider)
+export {MongoDataSource, MongoDataSourceProvider} from './datasource';
+
 // Services (public: interface + implementation)
 export {MongoService} from './services';
 export {MongoServiceImpl} from './services';

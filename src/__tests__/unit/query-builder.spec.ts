@@ -97,6 +97,23 @@ describe('buildWhere', () => {
     });
     expect(result.tags).toEqual({$elemMatch: {name: 'test'}});
   });
+
+  it('treats plain object values as equality match', () => {
+    // Regression: previously became {metadata: {}} because every
+    // key flipped hasOperator before checking it was a real operator.
+    const result = buildWhere({metadata: {region: 'us'}});
+    expect(result.metadata).toEqual({region: 'us'});
+  });
+
+  it('treats malformed operator-shaped objects as equality match', () => {
+    const result = buildWhere({tag: {notAnOperator: 'x'}});
+    expect(result.tag).toEqual({notAnOperator: 'x'});
+  });
+
+  it('treats mixed operator and non-operator keys as equality match', () => {
+    const result = buildWhere({tag: {gt: 1, weird: 2}});
+    expect(result.tag).toEqual({gt: 1, weird: 2});
+  });
 });
 
 describe('buildSort', () => {

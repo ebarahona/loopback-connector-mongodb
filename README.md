@@ -38,11 +38,9 @@ This package is a ground-up implementation on driver 6.x with TypeScript. It pro
 
 This package supports two integration modes:
 
-**Component path (recommended):** Use `MongoComponent` to get a shared `MongoConnectionManager` singleton. The lifecycle observer owns connect/disconnect. `MongoService` uses this shared manager. If you also need juggler repositories, pass the shared manager to the connector.
+**Component path (recommended):** Use `MongoComponent`. It binds a shared `MongoConnectionManager`, the `MongoService`, and a `MongoDataSource` (a juggler `DataSource` wired to the shared manager) so repositories and `MongoService` share one connection pool. The lifecycle observer owns connect/disconnect.
 
-**Standalone juggler path:** Use `initialize()` via a juggler `DataSource`. The connector creates and owns its own connection manager. `MongoService` is not available in this mode.
-
-For apps that need both repositories AND MongoService, use the component path and wire the shared manager into the connector.
+**Standalone juggler path:** Use `initialize()` via a plain juggler `DataSource`. The connector creates and owns its own connection manager. `MongoService` is not available in this mode.
 
 ## Quick Start
 
@@ -50,7 +48,12 @@ For apps that need both repositories AND MongoService, use the component path an
 
 ```typescript
 import {Application} from '@loopback/core';
-import {MongoComponent, MongoBindings} from '@ebarahona/loopback-connector-mongodb';
+import {juggler} from '@loopback/repository';
+import {
+  MongoComponent,
+  MongoBindings,
+  MongoService,
+} from '@ebarahona/loopback-connector-mongodb';
 
 const app = new Application();
 app.bind(MongoBindings.CONFIG).to({
@@ -58,9 +61,18 @@ app.bind(MongoBindings.CONFIG).to({
   database: 'myapp',
 });
 app.component(MongoComponent);
+await app.start();
+
+// Shared DataSource for repositories
+const ds = await app.get<juggler.DataSource>(MongoBindings.DATASOURCE);
+
+// Same connection pool, advanced operations
+const mongo = await app.get<MongoService>(MongoBindings.SERVICE);
 ```
 
-### Using the Connector with DataSource
+The repositories built against `MongoBindings.DATASOURCE` and code that injects `MongoBindings.SERVICE` share the same `MongoConnectionManager`, so there is exactly one pool, one lifecycle, and one topology state.
+
+### Using the Connector with DataSource (standalone)
 
 ```typescript
 import {juggler} from '@loopback/repository';
@@ -206,7 +218,7 @@ Change Stream methods throw a descriptive error on standalone instances.
 - MongoDB 4.4+
 - LoopBack 4 application
 
-Peer dependency: `@loopback/core`. Runtime dependencies: `mongodb` 6.x, `debug`.
+Peer dependencies: `@loopback/core` (>=7.0.0), `@loopback/repository` (>=8.0.0). Runtime dependencies: `mongodb` 6.x, `debug`.
 
 ## License
 

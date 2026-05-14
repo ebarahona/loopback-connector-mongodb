@@ -10,6 +10,7 @@ import {
 import debugFactory from 'debug';
 import {MongoBindings} from './keys';
 import {MongoConnectionManager} from './helpers/connection-manager';
+import {MongoDataSourceProvider} from './datasource/mongo.datasource.provider';
 import {MongoServiceImpl} from './services/mongo.service.impl';
 import {MongoConnectorConfig} from './types';
 
@@ -57,14 +58,17 @@ export class MongoLifecycleObserver implements LifeCycleObserver {
  * LoopBack 4 component that provides MongoDB connectivity.
  *
  * Registers:
- * - MongoConnectionManager (singleton, owns the MongoClient)
- * - MongoClient (singleton, derived from the connection manager)
- * - MongoService (singleton, advanced native operations)
- * - MongoLifecycleObserver (connects on start, disconnects on stop)
+ * - MongoBindings.CONNECTION_MANAGER -- shared MongoConnectionManager
+ *   singleton; owns the MongoClient and its lifecycle.
+ * - MongoBindings.SERVICE -- MongoService singleton for advanced
+ *   native operations (aggregation, Change Streams, GridFS, ...).
+ * - MongoBindings.DATASOURCE -- juggler DataSource singleton wired
+ *   to the shared manager, for repository-based code paths.
+ * - MongoLifecycleObserver -- connects on start, disconnects on stop.
  *
- * Both the juggler connector and MongoService use the same
- * connection manager, guaranteeing one connection pool, one
- * lifecycle, and one topology state.
+ * The juggler DataSource, the repositories built on it, and the
+ * MongoService all share one MongoConnectionManager, guaranteeing
+ * one connection pool, one lifecycle, and one topology state.
  *
  * Usage:
  * ```typescript
@@ -74,6 +78,9 @@ export class MongoLifecycleObserver implements LifeCycleObserver {
  *   database: 'mydb',
  * });
  * app.component(MongoComponent);
+ *
+ * const ds = await app.get(MongoBindings.DATASOURCE);
+ * const service = await app.get(MongoBindings.SERVICE);
  * ```
  */
 export class MongoComponent implements Component {
@@ -83,6 +90,9 @@ export class MongoComponent implements Component {
       .inScope(BindingScope.SINGLETON),
     Binding.bind(MongoBindings.SERVICE)
       .toClass(MongoServiceImpl)
+      .inScope(BindingScope.SINGLETON),
+    Binding.bind(MongoBindings.DATASOURCE)
+      .toProvider(MongoDataSourceProvider)
       .inScope(BindingScope.SINGLETON),
   ];
 
