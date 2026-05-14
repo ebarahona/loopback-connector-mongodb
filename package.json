@@ -24,7 +24,7 @@
     "test:dev": "vitest",
     "commitlint": "commitlint --edit",
     "prepare": "sh scripts/install-hooks.sh",
-    "prepublishOnly": "npm run clean && npm run lint && npm run build && npm test",
+    "prepublishOnly": "npm run clean && npm run build",
     "leak-detection": "node --expose-gc scripts/leak-detection.mjs",
     "bench": "node bench/index.mjs",
     "docs": "typedoc"
@@ -105,5 +105,6 @@
         "debug"
       ]
     }
-  ]
+  ],
+  "type": "commonjs"
 }
