@@ -62,7 +62,7 @@ export class MongoChangeStreamServer extends ServerBase {
     for (const [key, handlers] of this.getHandlers().entries()) {
       const pattern = this.parseKey(key);
       if (pattern === undefined) {
-        debug('skipping handler with unparseable pattern key: %s', key);
+        debug('skipping handler with unparsable pattern key: %s', key);
         continue;
       }
       const watchOpts = this.pickWatchOptions(key, handlers);
