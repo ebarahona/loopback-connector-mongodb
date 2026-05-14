@@ -76,7 +76,9 @@ describe('Integration: Change Streams', () => {
 
     const stream = service.watchCollection('tokens');
 
-    await new Promise(r => setTimeout(r, 200));
+    // Give the cursor time to subscribe on slow CI runners before
+    // issuing the insert that the test expects to observe.
+    await new Promise(r => setTimeout(r, 1500));
 
     const changePromise = new Promise<Record<string, unknown>>(
       (resolve, reject) => {
