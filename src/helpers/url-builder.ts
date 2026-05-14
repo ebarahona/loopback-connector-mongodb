@@ -1,4 +1,4 @@
-import {MongoConnectorConfig} from '../types';
+import type {MongoConnectorConfig} from '../types';
 
 /**
  * Build a MongoDB connection URL from config.

@@ -1,8 +1,8 @@
 import {juggler} from '@loopback/repository';
 import {ObjectId} from 'mongodb';
 import {MongoConnector} from '../connector/mongo.connector';
-import {MongoConnectionManager} from '../helpers/connection-manager';
-import {MongoConnectorConfig} from '../types';
+import type {MongoConnectionManager} from '../helpers/connection-manager';
+import type {MongoConnectorConfig} from '../types';
 
 /**
  * A juggler DataSource whose underlying connector uses a shared
@@ -12,6 +12,8 @@ import {MongoConnectorConfig} from '../types';
  * Lifecycle is owned by the shared manager (MongoComponent's
  * lifecycle observer). Calling `disconnect()` on the underlying
  * connector is a no-op.
+ *
+ * @public
  */
 export class MongoDataSource extends juggler.DataSource {
   constructor(
@@ -27,8 +29,7 @@ export class MongoDataSource extends juggler.DataSource {
     // juggler.DataSource only assigns `this.connector` when it
     // resolves the connector via an initialize() module. We pass
     // a fully constructed connector instance, so wire it directly.
-    (this as unknown as {connector: MongoConnector}).connector =
-      connector;
+    (this as unknown as {connector: MongoConnector}).connector = connector;
     connector.dataSource = this as unknown as Record<string, unknown>;
     (this as unknown as Record<string, unknown>).ObjectID = ObjectId;
 

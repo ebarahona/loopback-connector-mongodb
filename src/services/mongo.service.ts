@@ -43,16 +43,15 @@ import type {
  * - Admin commands
  *
  * Uses the same MongoClient singleton as the connector.
+ *
+ * @public
  */
 export interface MongoService {
   // ---- Core access ----
 
   getClient(): MongoClient;
   getDb(name?: string): Db;
-  getCollection<T extends Document>(
-    name: string,
-    db?: string,
-  ): Collection<T>;
+  getCollection<T extends Document>(name: string, db?: string): Collection<T>;
 
   // ---- Aggregation ----
 
@@ -112,9 +111,7 @@ export interface MongoService {
 
   // ---- Transactions ----
 
-  withSession<T>(
-    fn: (session: ClientSession) => Promise<T>,
-  ): Promise<T>;
+  withSession<T>(fn: (session: ClientSession) => Promise<T>): Promise<T>;
 
   withTransaction<T>(
     fn: (session: ClientSession) => Promise<T>,
@@ -151,10 +148,7 @@ export interface MongoService {
 
   admin(): Admin;
   listDatabases(): Promise<ListDatabasesResult>;
-  listCollections(
-    db?: string,
-    filter?: Document,
-  ): Promise<Document[]>;
+  listCollections(db?: string, filter?: Document): Promise<Document[]>;
   dbStats(db?: string): Promise<Document>;
   command(command: Document, db?: string): Promise<Document>;
 

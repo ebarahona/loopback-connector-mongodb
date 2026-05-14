@@ -1,5 +1,9 @@
 import {describe, it, expect} from 'vitest';
-import {buildWhere, buildSort, buildFields} from '../../connector/query-builder';
+import {
+  buildWhere,
+  buildSort,
+  buildFields,
+} from '../../connector/query-builder';
 import {ObjectId} from 'mongodb';
 
 describe('buildWhere', () => {
@@ -81,10 +85,7 @@ describe('buildWhere', () => {
     const result = buildWhere({
       and: [{status: 'active'}, {total: {gt: 0}}],
     });
-    expect(result.$and).toEqual([
-      {status: 'active'},
-      {total: {$gt: 0}},
-    ]);
+    expect(result.$and).toEqual([{status: 'active'}, {total: {$gt: 0}}]);
   });
 
   it('handles null values', () => {

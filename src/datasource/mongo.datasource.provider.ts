@@ -10,9 +10,7 @@ import {MongoDataSource} from './mongo.datasource';
  * shared MongoConnectionManager. Bound by MongoComponent at
  * MongoBindings.DATASOURCE.
  */
-export class MongoDataSourceProvider
-  implements Provider<juggler.DataSource>
-{
+export class MongoDataSourceProvider implements Provider<juggler.DataSource> {
   constructor(
     @inject(MongoBindings.CONFIG, {optional: true})
     private config: MongoConnectorConfig | undefined,

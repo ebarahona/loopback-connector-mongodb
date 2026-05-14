@@ -1,7 +1,8 @@
 import {describe, it, expect, beforeAll, afterAll} from 'vitest';
 import {Application} from '@loopback/core';
 import {MongoMemoryReplSet} from 'mongodb-memory-server';
-import {MongoComponent, MongoBindings, MongoService} from '../../index';
+import type {MongoService} from '../../index';
+import {MongoComponent, MongoBindings} from '../../index';
 
 describe('Integration: Time Series Collections', () => {
   let mongod: MongoMemoryReplSet;
@@ -30,22 +31,17 @@ describe('Integration: Time Series Collections', () => {
   });
 
   it('creates a time series collection', async () => {
-    const col = await service.createTimeSeriesCollection(
-      'ts_metrics',
-      {
-        timeField: 'timestamp',
-        metaField: 'source',
-        granularity: 'minutes',
-      },
-    );
+    const col = await service.createTimeSeriesCollection('ts_metrics', {
+      timeField: 'timestamp',
+      metaField: 'source',
+      granularity: 'minutes',
+    });
 
     expect(col.collectionName).toBe('ts_metrics');
 
     // Verify it's a time series collection
     const collections = await service.listCollections();
-    const tsCol = collections.find(
-      c => c.name === 'ts_metrics',
-    );
+    const tsCol = collections.find(c => c.name === 'ts_metrics');
     expect(tsCol).toBeDefined();
     expect(tsCol?.options?.timeseries).toBeDefined();
     expect(tsCol?.options?.timeseries?.timeField).toBe('timestamp');

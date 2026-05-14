@@ -1,7 +1,8 @@
 import {describe, it, expect, beforeAll, afterAll} from 'vitest';
 import {Application} from '@loopback/core';
 import {MongoMemoryReplSet} from 'mongodb-memory-server';
-import {MongoComponent, MongoBindings, MongoService} from '../../index';
+import type {MongoService} from '../../index';
+import {MongoComponent, MongoBindings} from '../../index';
 
 describe('Integration: Change Streams', () => {
   let mongod: MongoMemoryReplSet;
@@ -43,9 +44,7 @@ describe('Integration: Change Streams', () => {
   }, 10000);
 
   it('watches database-level events', async () => {
-    const stream = service.watchDatabase([
-      {$match: {operationType: 'insert'}},
-    ]);
+    const stream = service.watchDatabase([{$match: {operationType: 'insert'}}]);
 
     await new Promise(r => setTimeout(r, 200));
 

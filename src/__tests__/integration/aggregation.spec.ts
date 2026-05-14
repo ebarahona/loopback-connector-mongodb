@@ -1,7 +1,8 @@
 import {describe, it, expect, beforeAll, afterAll} from 'vitest';
 import {Application} from '@loopback/core';
 import {MongoMemoryReplSet} from 'mongodb-memory-server';
-import {MongoComponent, MongoBindings, MongoService} from '../../index';
+import type {MongoService} from '../../index';
+import {MongoComponent, MongoBindings} from '../../index';
 
 describe('Integration: Aggregation', () => {
   let mongod: MongoMemoryReplSet;

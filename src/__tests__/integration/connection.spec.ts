@@ -14,18 +14,19 @@ import {
   MongoService,
   MongoConnectionManager,
   MongoConnector,
+  MongoDataSourceFactory,
 } from '../../index';
 
 @model()
 class TestItem extends Entity {
   @property({type: 'string', id: true, generated: false})
-  id: string;
+  declare id: string;
 
   @property({type: 'string', required: true})
-  name: string;
+  declare name: string;
 
   @property({type: 'number'})
-  value?: number;
+  declare value?: number;
 }
 
 describe('Integration: Connection and Component', () => {
@@ -77,13 +78,10 @@ describe('Integration: Connection and Component', () => {
   });
 
   it('resolves a shared MongoDataSource from the container', async () => {
-    const ds = await app.get<juggler.DataSource>(
-      MongoBindings.DATASOURCE,
-    );
+    const ds = await app.get<juggler.DataSource>(MongoBindings.DATASOURCE);
     expect(ds).toBeInstanceOf(juggler.DataSource);
 
-    const connector = (ds as unknown as {connector: MongoConnector})
-      .connector;
+    const connector = (ds as unknown as {connector: MongoConnector}).connector;
     const dsManager = connector.getConnectionManager();
     const sharedManager = await app.get<MongoConnectionManager>(
       MongoBindings.CONNECTION_MANAGER,
@@ -96,9 +94,7 @@ describe('Integration: Connection and Component', () => {
     let repo: DefaultCrudRepository<TestItem, string>;
 
     beforeAll(async () => {
-      const ds = await app.get<juggler.DataSource>(
-        MongoBindings.DATASOURCE,
-      );
+      const ds = await app.get<juggler.DataSource>(MongoBindings.DATASOURCE);
       repo = new DefaultCrudRepository(TestItem, ds);
     });
 
@@ -140,6 +136,33 @@ describe('Integration: Connection and Component', () => {
       await repo.deleteById('repo-test-1');
       const exists = await repo.exists('repo-test-1');
       expect(exists).toBe(false);
+    });
+  });
+
+  describe('per-tenant DataSource factory', () => {
+    it('builds DataSources for different databases on one pool', async () => {
+      const factory = await app.get<MongoDataSourceFactory>(
+        MongoBindings.DATASOURCE_FACTORY,
+      );
+      const sharedManager = await app.get<MongoConnectionManager>(
+        MongoBindings.CONNECTION_MANAGER,
+      );
+
+      const dsA = factory({database: 'tenant_a'});
+      const dsB = factory({database: 'tenant_b'});
+
+      // Both DataSources route through the same shared manager,
+      // and therefore the same MongoClient and connection pool.
+      const cA = (dsA as unknown as {connector: MongoConnector}).connector;
+      const cB = (dsB as unknown as {connector: MongoConnector}).connector;
+      expect(cA.getConnectionManager()).toBe(sharedManager);
+      expect(cB.getConnectionManager()).toBe(sharedManager);
+
+      // And the per-tenant collections land on different databases.
+      const collA = cA.collectionForModel('TestItem');
+      const collB = cB.collectionForModel('TestItem');
+      expect(collA.dbName).toBe('tenant_a');
+      expect(collB.dbName).toBe('tenant_b');
     });
   });
 });

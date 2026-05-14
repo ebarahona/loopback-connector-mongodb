@@ -1,11 +1,12 @@
 import {describe, it, expect} from 'vitest';
-import {ObjectId, Decimal128, Binary, Document} from 'mongodb';
+import type {Document} from 'mongodb';
+import {ObjectId, Decimal128, Binary} from 'mongodb';
+import type {ModelDefinition} from '../../connector/property-mapping';
 import {
   toDatabase,
   fromDatabase,
   getIdPropertyName,
   getDatabaseColumnName,
-  ModelDefinition,
 } from '../../connector/property-mapping';
 
 const testModel: ModelDefinition = {
@@ -111,7 +112,9 @@ describe('getIdPropertyName', () => {
 
 describe('getDatabaseColumnName', () => {
   it('returns custom field name', () => {
-    expect(getDatabaseColumnName(testModel, 'customField')).toBe('custom_field');
+    expect(getDatabaseColumnName(testModel, 'customField')).toBe(
+      'custom_field',
+    );
   });
 
   it('returns property name when no mapping', () => {

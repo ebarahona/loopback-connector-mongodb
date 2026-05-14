@@ -1,12 +1,19 @@
-import {MongoClient, Db} from 'mongodb';
+import type {Db} from 'mongodb';
+import {MongoClient} from 'mongodb';
 import debugFactory from 'debug';
-import {MongoConnectorConfig} from '../types';
+import type {MongoConnectorConfig} from '../types';
 import {buildConnectionUrl} from './url-builder';
-import {detectTopology, TopologyInfo} from './topology';
+import {validateConfig, redactUrl} from './config-validator';
+import type {TopologyInfo} from './topology';
+import {detectTopology} from './topology';
 
 const debug = debugFactory('loopback:connector:mongodb:connection');
 
-type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'disconnecting';
+type ConnectionState =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'disconnecting';
 
 /**
  * Centralized connection manager for the MongoDB client.
@@ -169,11 +176,9 @@ export class MongoConnectionManager {
   }
 
   private async doConnect(gen: number): Promise<void> {
+    validateConfig(this.config);
     const url = buildConnectionUrl(this.config);
-    debug(
-      'connecting to %s',
-      url.replace(/\/\/[^@]*@/, '//<credentials>@'),
-    );
+    debug('connecting to %s', redactUrl(url));
 
     const client = new MongoClient(url, this.config.clientOptions);
 
@@ -192,8 +197,7 @@ export class MongoConnectionManager {
     }
 
     this.client = client;
-    const dbName =
-      this.config.database ?? this.extractDatabaseFromUrl(url);
+    const dbName = this.config.database ?? this.extractDatabaseFromUrl(url);
     this.db = client.db(dbName);
     this.topologyInfo = detectTopology(client);
     this.state = 'connected';

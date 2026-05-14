@@ -23,7 +23,7 @@ export interface MongoConnectorConfig {
 
   /**
    * Port for connection (used when url is not provided).
-   * @default 27017
+   * @defaultValue 27017
    */
   port?: number;
 
@@ -56,26 +56,26 @@ export interface MongoConnectorConfig {
    * Enable lazy connection. If true, connection is deferred
    * until the first operation. Only applies when using the
    * connector via juggler DataSource, not via MongoComponent.
-   * @default false
+   * @defaultValue false
    */
   lazyConnect?: boolean;
 
   /**
    * Enable debug logging.
-   * @default false
+   * @defaultValue false
    */
   debug?: boolean;
 
   /**
    * Enable extended operators ($inc, $set, $push, etc.)
    * in update operations.
-   * @default true
+   * @defaultValue true
    */
   allowExtendedOperators?: boolean;
 
   /**
    * Enable GeoPoint indexing support.
-   * @default false
+   * @defaultValue false
    */
   enableGeoIndexing?: boolean;
 
@@ -83,7 +83,7 @@ export interface MongoConnectorConfig {
    * Coerce ObjectId strings strictly. When true, only properties
    * explicitly marked with mongodb.dataType: 'ObjectId' are coerced.
    * When false, any 24-char hex string is auto-coerced.
-   * @default false
+   * @defaultValue false
    */
   strictObjectIDCoercion?: boolean;
 

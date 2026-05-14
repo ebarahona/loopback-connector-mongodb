@@ -55,10 +55,7 @@ export class MongoServiceImpl implements MongoService {
     return this.manager.getDb(name);
   }
 
-  getCollection<T extends Document>(
-    name: string,
-    db?: string,
-  ): Collection<T> {
+  getCollection<T extends Document>(name: string, db?: string): Collection<T> {
     return this.getDb(db).collection<T>(name);
   }
 
@@ -97,10 +94,7 @@ export class MongoServiceImpl implements MongoService {
   ): ChangeStream<T, ChangeStreamDocument<T>> {
     this.assertReplicaSet('watchCollection');
     debug('watchCollection [%s]', collection);
-    return this.getCollection<T>(collection).watch(
-      pipeline,
-      options,
-    );
+    return this.getCollection<T>(collection).watch(pipeline, options);
   }
 
   watchDatabase(
@@ -127,10 +121,7 @@ export class MongoServiceImpl implements MongoService {
     name: string,
     timeseriesOptions: TimeSeriesCollectionOptions,
     validatorSchema?: Document,
-    options?: Omit<
-      CreateCollectionOptions,
-      'timeseries' | 'validator'
-    >,
+    options?: Omit<CreateCollectionOptions, 'timeseries' | 'validator'>,
   ): Promise<Collection> {
     debug(
       'createTimeSeriesCollection [%s] timeField=%s',
@@ -178,9 +169,7 @@ export class MongoServiceImpl implements MongoService {
 
   // ---- Transactions ----
 
-  async withSession<T>(
-    fn: (session: ClientSession) => Promise<T>,
-  ): Promise<T> {
+  async withSession<T>(fn: (session: ClientSession) => Promise<T>): Promise<T> {
     return this.manager.getClient().withSession(fn);
   }
 
@@ -206,7 +195,8 @@ export class MongoServiceImpl implements MongoService {
   ): FindCursor<T> {
     debug('tailableCursor [%s]', collection);
     const coll = this.getCollection<T>(collection);
-    return coll.find(filter ?? ({} as Filter<T>), {
+    const emptyFilter: Filter<T> = {};
+    return coll.find(filter ?? emptyFilter, {
       ...options,
       tailable: true,
       awaitData: true,
@@ -220,10 +210,7 @@ export class MongoServiceImpl implements MongoService {
     indexSpec: IndexSpecification,
     options?: CreateIndexesOptions,
   ): Promise<string> {
-    return this.getCollection(collection).createIndex(
-      indexSpec,
-      options,
-    );
+    return this.getCollection(collection).createIndex(indexSpec, options);
   }
 
   async createIndexes(
@@ -231,20 +218,14 @@ export class MongoServiceImpl implements MongoService {
     indexes: IndexDescription[],
     options?: CreateIndexesOptions,
   ): Promise<string[]> {
-    return this.getCollection(collection).createIndexes(
-      indexes,
-      options,
-    );
+    return this.getCollection(collection).createIndexes(indexes, options);
   }
 
   async listIndexes(collection: string): Promise<Document[]> {
     return this.getCollection(collection).listIndexes().toArray();
   }
 
-  async dropIndex(
-    collection: string,
-    indexName: string,
-  ): Promise<void> {
+  async dropIndex(collection: string, indexName: string): Promise<void> {
     await this.getCollection(collection).dropIndex(indexName);
   }
 
@@ -258,10 +239,7 @@ export class MongoServiceImpl implements MongoService {
     return this.admin().listDatabases();
   }
 
-  async listCollections(
-    db?: string,
-    filter?: Document,
-  ): Promise<Document[]> {
+  async listCollections(db?: string, filter?: Document): Promise<Document[]> {
     return this.getDb(db).listCollections(filter).toArray();
   }
 

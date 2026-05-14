@@ -95,11 +95,7 @@ export function fromDatabase(
       result[propName] = value.buffer;
     } else if (value instanceof Decimal128) {
       result[propName] = parseFloat(value.toString());
-    } else if (
-      value instanceof ObjectId &&
-      prop &&
-      !isObjectIdProperty(prop)
-    ) {
+    } else if (value instanceof ObjectId && prop && !isObjectIdProperty(prop)) {
       result[propName] = value.toHexString();
     } else {
       result[propName] = value;

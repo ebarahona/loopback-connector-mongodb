@@ -2,7 +2,8 @@ import {describe, it, expect, beforeAll, afterAll} from 'vitest';
 import {Application} from '@loopback/core';
 import {MongoMemoryReplSet} from 'mongodb-memory-server';
 import {Readable} from 'stream';
-import {MongoComponent, MongoBindings, MongoService} from '../../index';
+import type {MongoService} from '../../index';
+import {MongoComponent, MongoBindings} from '../../index';
 
 describe('Integration: Advanced Features', () => {
   let mongod: MongoMemoryReplSet;
@@ -109,9 +110,13 @@ describe('Integration: Advanced Features', () => {
       const col = service.getCollection('idx_test');
       await col.insertOne({email: 'test@test.com', name: 'Test'});
 
-      const indexName = await service.createIndex('idx_test', {
-        email: 1,
-      }, {unique: true});
+      const indexName = await service.createIndex(
+        'idx_test',
+        {
+          email: 1,
+        },
+        {unique: true},
+      );
 
       expect(indexName).toBe('email_1');
 

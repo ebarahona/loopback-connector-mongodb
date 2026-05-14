@@ -11,6 +11,7 @@ import debugFactory from 'debug';
 import {MongoBindings} from './keys';
 import {MongoConnectionManager} from './helpers/connection-manager';
 import {MongoDataSourceProvider} from './datasource/mongo.datasource.provider';
+import {MongoDataSourceFactoryProvider} from './datasource/mongo.datasource.factory';
 import {MongoServiceImpl} from './services/mongo.service.impl';
 import {MongoConnectorConfig} from './types';
 
@@ -64,6 +65,8 @@ export class MongoLifecycleObserver implements LifeCycleObserver {
  *   native operations (aggregation, Change Streams, GridFS, ...).
  * - MongoBindings.DATASOURCE -- juggler DataSource singleton wired
  *   to the shared manager, for repository-based code paths.
+ * - MongoBindings.DATASOURCE_FACTORY -- factory for per-tenant
+ *   or per-database DataSource instances on the shared pool.
  * - MongoLifecycleObserver -- connects on start, disconnects on stop.
  *
  * The juggler DataSource, the repositories built on it, and the
@@ -82,6 +85,8 @@ export class MongoLifecycleObserver implements LifeCycleObserver {
  * const ds = await app.get(MongoBindings.DATASOURCE);
  * const service = await app.get(MongoBindings.SERVICE);
  * ```
+ *
+ * @public
  */
 export class MongoComponent implements Component {
   readonly bindings: Binding<unknown>[] = [
@@ -93,6 +98,9 @@ export class MongoComponent implements Component {
       .inScope(BindingScope.SINGLETON),
     Binding.bind(MongoBindings.DATASOURCE)
       .toProvider(MongoDataSourceProvider)
+      .inScope(BindingScope.SINGLETON),
+    Binding.bind(MongoBindings.DATASOURCE_FACTORY)
+      .toProvider(MongoDataSourceFactoryProvider)
       .inScope(BindingScope.SINGLETON),
   ];
 

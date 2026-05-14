@@ -5,7 +5,7 @@ import {toObjectId} from './coercion';
  * Convert a LoopBack where filter to a MongoDB query document.
  *
  * Supports:
- * - Simple equality: {name: 'test'}
+ * - Simple equality: `{name: 'test'}`
  * - Comparison operators: gt, gte, lt, lte, neq, between
  * - Array operators: inq, nin
  * - String operators: like, nlike, regexp
@@ -45,8 +45,7 @@ export function buildWhere(
 
     if (typeof value !== 'object' || value instanceof Date) {
       // Simple equality
-      query[fieldName] =
-        fieldName === '_id' ? toObjectId(value) : value;
+      query[fieldName] = fieldName === '_id' ? toObjectId(value) : value;
       continue;
     }
 
@@ -85,27 +84,19 @@ export function buildWhere(
           break;
         case 'inq':
           mongoExpr.$in = Array.isArray(operand)
-            ? operand.map(v =>
-                fieldName === '_id' ? toObjectId(v) : v,
-              )
+            ? operand.map(v => (fieldName === '_id' ? toObjectId(v) : v))
             : operand;
           break;
         case 'nin':
           mongoExpr.$nin = Array.isArray(operand)
-            ? operand.map(v =>
-                fieldName === '_id' ? toObjectId(v) : v,
-              )
+            ? operand.map(v => (fieldName === '_id' ? toObjectId(v) : v))
             : operand;
           break;
         case 'like':
-          mongoExpr.$regex = new RegExp(
-            escapeRegex(String(operand)),
-          );
+          mongoExpr.$regex = new RegExp(escapeRegex(String(operand)));
           break;
         case 'nlike':
-          mongoExpr.$not = new RegExp(
-            escapeRegex(String(operand)),
-          );
+          mongoExpr.$not = new RegExp(escapeRegex(String(operand)));
           break;
         case 'regexp':
           if (operand instanceof RegExp) {
@@ -140,8 +131,7 @@ export function buildWhere(
       // mixed case where some keys look like operators but
       // others do not -- safer to treat as a literal match
       // than to silently drop the non-operator keys.
-      query[fieldName] =
-        fieldName === '_id' ? toObjectId(value) : value;
+      query[fieldName] = fieldName === '_id' ? toObjectId(value) : value;
     }
   }
 
@@ -169,8 +159,7 @@ export function buildSort(
   for (const item of orders) {
     const parts = item.trim().split(/\s+/);
     let field = parts[0];
-    const direction =
-      parts[1]?.toUpperCase() === 'DESC' ? -1 : 1;
+    const direction = parts[1]?.toUpperCase() === 'DESC' ? -1 : 1;
 
     if (field === idName) field = '_id';
     sort[field] = direction as 1 | -1;
@@ -183,9 +172,9 @@ export function buildSort(
  * Convert a LoopBack fields filter to a MongoDB projection.
  *
  * @param fields - LoopBack fields specification
- *   - ['name', 'email'] (include only)
- *   - {name: true, email: true} (include)
- *   - {password: false} (exclude)
+ *   - `['name', 'email']` (include only)
+ *   - `{name: true, email: true}` (include)
+ *   - `{password: false}` (exclude)
  * @param idName - The model's ID property name
  */
 export function buildFields(
