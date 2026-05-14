@@ -17,7 +17,13 @@ jobs:
       fail-fast: false
       matrix:
         node: ['20.19', '22', '24']
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
+        # Trim macOS to the lowest + highest Node so we still
+        # detect macOS-specific issues without spending 6x runner
+        # minutes on every push. ubuntu-latest covers full matrix.
+        exclude:
+          - os: macos-latest
+            node: '22'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

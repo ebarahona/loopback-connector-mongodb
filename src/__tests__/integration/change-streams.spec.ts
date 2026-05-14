@@ -28,7 +28,7 @@ describe('Integration: Change Streams', () => {
     await new Promise(r => setTimeout(r, 500));
     await app?.stop();
     await mongod?.stop();
-  }, 10000);
+  }, 30000);
 
   it('opens a collection-level change stream', async () => {
     // Verify that watchCollection returns a valid ChangeStream
@@ -41,7 +41,7 @@ describe('Integration: Change Streams', () => {
 
     // The stream is open and can be closed cleanly
     await stream.close();
-  }, 10000);
+  }, 30000);
 
   it('watches database-level events', async () => {
     const stream = service.watchDatabase([{$match: {operationType: 'insert'}}]);
@@ -52,7 +52,7 @@ describe('Integration: Change Streams', () => {
       (resolve, reject) => {
         const timeout = setTimeout(
           () => reject(new Error('Change stream timeout')),
-          5000,
+          20000,
         );
         stream.once('change', change => {
           clearTimeout(timeout);
@@ -68,7 +68,7 @@ describe('Integration: Change Streams', () => {
     expect(change.operationType).toBe('insert');
 
     await stream.close();
-  }, 10000);
+  }, 30000);
 
   it('provides resume tokens', async () => {
     const col = service.getCollection('tokens');
@@ -82,7 +82,7 @@ describe('Integration: Change Streams', () => {
       (resolve, reject) => {
         const timeout = setTimeout(
           () => reject(new Error('Change stream timeout')),
-          5000,
+          20000,
         );
         stream.once('change', change => {
           clearTimeout(timeout);
@@ -98,5 +98,5 @@ describe('Integration: Change Streams', () => {
     expect(token).toBeDefined();
 
     await stream.close();
-  }, 10000);
+  }, 30000);
 });
