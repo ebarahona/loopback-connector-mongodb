@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Use GitHub private vulnerability reporting: https://github.com/ebarahona/loopback-service-mongodb/security/advisories/new.
+Use GitHub private vulnerability reporting: https://github.com/ebarahona/loopback-connector-mongodb/security/advisories/new.
 
 If GitHub reporting is unavailable, email ebarahona@gmail.com with the subject prefix `[SECURITY] @ebarahona/loopback-connector-mongodb`.
 

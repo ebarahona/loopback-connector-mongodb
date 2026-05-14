@@ -11,7 +11,7 @@ contributor is using.
 plus injectable `MongoService` and shared `MongoDataSource` factory, built
 on the native MongoDB Node driver 7.x in TypeScript. Runtime: Node
 `>= 20.19.0`. License: MIT. Repository:
-https://github.com/ebarahona/loopback-service-mongodb.
+https://github.com/ebarahona/loopback-connector-mongodb.
 
 ## Required reading
 
@@ -116,12 +116,12 @@ so the conventions apply automatically on every turn.
 ## Communicating with the maintainer
 
 - Bug reports:
-  https://github.com/ebarahona/loopback-service-mongodb/issues
+  https://github.com/ebarahona/loopback-connector-mongodb/issues
   (template: `.github/ISSUE_TEMPLATE/bug_report.yml`).
 - Feature requests: same URL
   (template: `.github/ISSUE_TEMPLATE/feature_request.yml`).
 - Security issues:
-  https://github.com/ebarahona/loopback-service-mongodb/security/advisories/new.
+  https://github.com/ebarahona/loopback-connector-mongodb/security/advisories/new.
   See [./SECURITY.md](./SECURITY.md).
 - Code of conduct: [./CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
   (Contributor Covenant 2.1).

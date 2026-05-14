@@ -23,5 +23,7 @@ extend-ignore-re = [
 # MongoDB / driver names
 mongodb = "mongodb"
 loopback = "loopback"
+# MongoDB query operators
+nin = "nin"
 # Project-local terms
 juggler = "juggler"

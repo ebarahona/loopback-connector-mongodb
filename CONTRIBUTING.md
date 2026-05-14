@@ -22,8 +22,8 @@ Agents must follow the same expectations as human contributors: Conventional Com
 Requires **Node.js >= 20.19.0** (matches the `mongodb` 7.x driver requirement).
 
 ```bash
-git clone https://github.com/ebarahona/loopback-service-mongodb.git
-cd loopback-service-mongodb
+git clone https://github.com/ebarahona/loopback-connector-mongodb.git
+cd loopback-connector-mongodb
 npm ci
 npm run build
 npm test
