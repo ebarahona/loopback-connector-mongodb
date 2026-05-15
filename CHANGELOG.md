@@ -6,6 +6,19 @@
 
 - transport: add `@changeStream` decorator, `ChangeStreamDiscoverer`, `MongoChangeStreamServer`, and `MongoChangeStreamComponent` to register MongoDB change streams as a transport-core transport (peer-dep on `@ebarahona/loopback-transport-core@>=1.2.0`). All new exports `@experimental`.
 
+## [1.1.0](https://github.com/ebarahona/loopback-connector-mongodb/compare/loopback-connector-mongodb-v1.0.0...loopback-connector-mongodb-v1.1.0) (2026-05-15)
+
+
+### Features
+
+* **transport:** add [@change](https://github.com/change)Stream decorator and MongoChangeStreamServer ([f837164](https://github.com/ebarahona/loopback-connector-mongodb/commit/f83716455352627960e22754bbdc65cc84c80201))
+
+
+### Bug Fixes
+
+* **ci:** typo and cross-platform lockfile install for mongo CI ([5487fac](https://github.com/ebarahona/loopback-connector-mongodb/commit/5487facb6706c06d3cbedc44e6f1b1c7507ba733))
+* **test:** widen change-stream subscribe window for slow CI runners ([3b31ded](https://github.com/ebarahona/loopback-connector-mongodb/commit/3b31ded09fd614dd5ab966e5e9ddbcb8193d169f))
+
 ## 1.0.0 (2026-05-14)
 
 ### ⚠ BREAKING CHANGES
