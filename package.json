@@ -1,6 +1,6 @@
 {
   "name": "@ebarahona/loopback-connector-mongodb",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Full-featured MongoDB connector for LoopBack 4 on driver 7.x. Aggregation, Change Streams, Time Series, GridFS, transactions, tailable cursors, bulk ops, and an injectable MongoService.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
