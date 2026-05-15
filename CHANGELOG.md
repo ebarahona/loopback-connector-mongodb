@@ -1,11 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Features
-
-- transport: add `@changeStream` decorator, `ChangeStreamDiscoverer`, `MongoChangeStreamServer`, and `MongoChangeStreamComponent` to register MongoDB change streams as a transport-core transport (peer-dep on `@ebarahona/loopback-transport-core@>=1.2.0`). All new exports `@experimental`.
-
 ## 1.0.0 (2026-05-14)
 
 ### ⚠ BREAKING CHANGES

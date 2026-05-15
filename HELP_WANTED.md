@@ -50,3 +50,22 @@ Needed:
 4. Performance PRs must include: methodology, raw numbers, hardware
    spec (CPU, RAM, Node version, OS), and at least 5 runs to demonstrate
    stability.
+
+## Flaky tests
+
+File: `src/__tests__/integration/change-streams.spec.ts`
+
+The `provides resume tokens` test opens a change-stream watch then
+issues an insert it expects to observe. On slow CI runners the cursor
+sometimes never delivers the change even after a 1500ms warmup,
+causing the 20s test timeout to fire. The test is currently skipped
+on CI (`it.skipIf(process.env.CI)`) and still runs locally where the
+replica set is fast enough.
+
+Needed:
+
+- A robust readiness signal that replaces the timed sleep, for
+  example polling for the cursor's `init` event or issuing a probe
+  insert and waiting for the change before issuing the real one.
+- Once the readiness signal lands, remove the CI skip so the test
+  is a real gate again.
