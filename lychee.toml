@@ -9,6 +9,10 @@ include_verbatim = false
 exclude = [
   # GitHub link patterns that 200/302 but rate-limit aggressively
   '^https://github\.com/.+/(issues|pull|security|releases)/.*$',
+  # release-please-generated cross-tag compare URLs that 404 when the
+  # tag naming format shifts between versions (e.g. v1.0.0 vs the
+  # package-prefixed loopback-connector-mongodb-v1.x.x form).
+  '^https://github\.com/.+/compare/.+\.\.\..+$',
   # Local file references inside fenced code blocks that aren't actual URLs
   '^file://',
 ]

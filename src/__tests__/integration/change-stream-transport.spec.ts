@@ -13,7 +13,7 @@ import {TransportComponent, payload} from '@ebarahona/loopback-transport-core';
 /**
  * Integration tests for the `@changeStream` decorator + `MongoChangeStreamServer`
  * transport integration. These tests verify the wiring between the decorator,
- * the discoverer, and the server — not the raw `watchCollection` semantics
+ * the discoverer, and the server, not the raw `watchCollection` semantics
  * (those are covered by `change-streams.spec.ts`).
  */
 describe('Integration: Change Stream Transport', () => {

@@ -38,11 +38,12 @@ interface ChangeStreamPattern {
  * The server reads the original {@link MongoChangeStreamHandlerOptions}
  * off each handler's `extras` field (populated by the discoverer) and
  * uses them to build the watch pipeline and stream options. When a
- * group of handlers under the same pattern carry conflicting watch
+ * group of handlers under the same pattern declare conflicting watch
  * options (e.g. different `pipeline` or `fullDocument` settings), the
- * server picks the first handler's options and logs a debug warning;
- * the simplest way to opt out of this de-duplication is to vary either
- * `collection` or `op`, both of which participate in the pattern key.
+ * server silently picks the first handler's options. The simplest way
+ * to fan out distinct configs is to vary either `collection` or `op`,
+ * both of which participate in the pattern key. A diagnostic
+ * conflict-detection log is a planned follow-up.
  *
  * Bound by {@link MongoChangeStreamComponent} under
  * `TransportBindings.tags.SERVER` with NAME `'mongo-change-stream'`.

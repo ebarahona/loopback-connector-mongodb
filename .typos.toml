@@ -17,6 +17,8 @@ extend-ignore-re = [
   "ObjectId",
   # GUIDs
   "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+  # Short commit SHAs in markdown link form (release-please-generated)
+  "\\[[0-9a-f]{7,}\\]",
 ]
 
 [default.extend-words]
