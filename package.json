@@ -100,18 +100,5 @@
   "publishConfig": {
     "access": "public"
   },
-  "size-limit": [
-    {
-      "name": "dist (CommonJS)",
-      "path": "dist/index.js",
-      "limit": "100 KB",
-      "ignore": [
-        "@loopback/core",
-        "@loopback/repository",
-        "mongodb",
-        "debug"
-      ]
-    }
-  ],
   "type": "commonjs"
 }
