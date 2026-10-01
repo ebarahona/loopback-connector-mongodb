@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2](https://github.com/ebarahona/loopback-connector-mongodb/compare/loopback-connector-mongodb-v1.1.1...loopback-connector-mongodb-v1.1.2) (2026-10-01)
+
+
+### Bug Fixes
+
+* **hooks:** drop the lefthook dependency so its postinstall can't write to a global hooksPath ([#7](https://github.com/ebarahona/loopback-connector-mongodb/issues/7)) ([9d49c62](https://github.com/ebarahona/loopback-connector-mongodb/commit/9d49c62884597ce76ecafda0275dbdec8c1c774f))
+* **hooks:** never install into a hooksPath outside the repo ([#5](https://github.com/ebarahona/loopback-connector-mongodb/issues/5)) ([8acee1d](https://github.com/ebarahona/loopback-connector-mongodb/commit/8acee1d5a01bc28b64db539ec3ce0f9ec0f090ab))
+
 ## [1.1.1](https://github.com/ebarahona/loopback-connector-mongodb/compare/loopback-connector-mongodb-v1.1.0...loopback-connector-mongodb-v1.1.1) (2026-05-15)
 
 
